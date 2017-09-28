@@ -42,8 +42,7 @@ def get_amd_cards():
     import re
     import os
 
-    pwm_list = []
-    temp_list =[]
+    card_id_list = []
     card_path_tpl = '/sys/class/drm/card{card_id}/device/hwmon/hwmon{hw}/{data_type}'
 
     regex = r'^card(?P<card_id>[\d]+)$'
@@ -55,11 +54,13 @@ def get_amd_cards():
             'card5-DP-15', 'card5-DP-16', 'card5-DVI-D-6', 'card5-HDMI-A-8', 'card6',
             'card6-DP-17', 'card6-DP-18', 'card6-DP-19', 'card6-DVI-D-7', 'card6-HDMI-A-9',
             'card7', 'card7-DP-20', 'card0', 'card0-DP-1', 'card0-DP-2', 'card0-DVI-D-1',
+            'card12-HDMI-A-10', 'card12-HDMI-A-3', 'card12', 'card12-DP-6', 'card12-DP-7',
             'card0-HDMI-A-1', 'card0-HDMI-A-2', 'card1', 'card1-DP-3', 'card1-DP-4',
             'card1-DP-5', 'card1-DVI-D-2', 'card7-DP-21', 'card7-DP-22', 'card7-DVI-D-8',
             'card7-HDMI-A-10', 'card1-HDMI-A-3', 'card2', 'card2-DP-6', 'card2-DP-7',
             'card2-DP-8', 'card2-DVI-D-3', 'card2-HDMI-A-4', 'card3', 'card3-DP-10',
             'card3-DP-9', 'card3-DVI-D-4', 'renderD128', 'renderD129', 'renderD130',
+            'card10-HDMI-A-10', 'card10-HDMI-A-3', 'card10', 'card10-DP-6', 'card10-DP-7',
             'renderD131', 'renderD132', 'renderD133', 'renderD134', 'renderD135', 'version',
         )
     else:
@@ -69,12 +70,17 @@ def get_amd_cards():
         m = re.match(regex, card)
         if m:
             card_id = int(m.group('card_id'))
-            pwm_path = card_path_tpl.format(card_id=card_id, hw=card_id + 1, data_type='pwm1')
-            temp_path = card_path_tpl.format(card_id=card_id, hw=card_id + 1, data_type='temp1_input')
-            pwm_list.append(pwm_path)
-            temp_list.append(temp_path)
+            card_id_list.append(card_id)
 
-    r = {'temp': sorted(temp_list), 'pwm': sorted(pwm_list)}
+    card_id_list.sort()
+    temp_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type='temp1_input') for x in card_id_list]
+    pwm_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type='pwm1') for x in card_id_list]
+
+    r = {
+        'temp': temp_list,
+        'pwm': pwm_list,
+    }
+
     log.debug(r)
     return r
 

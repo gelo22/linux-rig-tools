@@ -4,18 +4,24 @@ import argparse
 import logging as log
 import json
 import os
+import sys
 import subprocess
 import random
 from pprint import pprint
 
 
+GPU_TYPE = ['amd', 'nvidia']
+
 parser = argparse.ArgumentParser(description='Miner API')
 
 parser.add_argument('--api', action='store_true', default=False, help='Start API server')
+parser.add_argument('--gpu-type', type=str, action='store', required=True, choices=GPU_TYPE)
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--fake', action='store_true', default=False, help='Test mode, enable fake data')
 
+
 args = parser.parse_args()
+
 
 if args.debug:
     DEBUG = True
@@ -27,12 +33,62 @@ else:
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
-class NvidiaGpuData():
+class NvidiaGpu():
     def __init__(self):
-        pass
+        self.cards_data = []
+        self.cards_keys = (
+            'index', 'card_model', 'uuid', 'driver_version', 'bus_id', 'pcie_gen',
+            'core_load', 'temp', 'fan', 'power_current', 'core_clock', 'mem_clock',
+            'mem_load', 'mem_used', 'mem_total',
+            'vbios_version',
+        )
+        self.smi_keys = (
+            'index', 'name', 'uuid', 'driver_version', 'pci.bus_id', 'pcie.link.gen.current',
+            'utilization.gpu', 'temperature.gpu', 'fan.speed', 'power.draw', 'clocks.sm', 'clocks.mem',
+            'utilization.memory', 'memory.used', 'memory.total',
+            'vbios_version',
+        )
+        self.nvidia_smi = (
+            'nvidia-smi',
+            '--query-gpu={}'.format(','.join(self.smi_keys)),
+            '--format=csv'
+        )
+
+    def get_data(self):
+        if args.fake:
+            log.info(' '.join(self.nvidia_smi))
+
+        proc = subprocess.Popen(self.nvidia_smi, stderr=subprocess.PIPE, stdout=subprocess.PIPE).communicate()
+        for card in proc[0].decode('utf-8').split('\n'):
+            if card:
+                d = dict(zip(self.cards_keys, card.split(', ')))
+                index = d.get('index')
+
+                if index == 'index':
+                    continue
+
+                index = int(index)
+                d.update(dict(
+                    index=index,
+                    name='card{0:02d}'.format(index),
+                    temp=int(d.get('temp')),
+                    power_current=round(float(d.get('power_current').split(' ')[0])),
+                    mem_load=int(d.get('mem_load').split(' ')[0]),
+                    core_load=int(d.get('core_load').split(' ')[0]),
+                    core_clock=int(d.get('core_clock').split(' ')[0]),
+                    mem_used=int(d.get('mem_used').split(' ')[0]),
+                    mem_total=int(d.get('mem_total').split(' ')[0]),
+                    mem_clock=int(d.get('mem_clock').split(' ')[0]),
+                    fan=int(d.get('fan').split(' ')[0]),
+                    vendor=GPU_TYPE[1],
+                ))
+
+                self.cards_data.append(d)
+        log.debug(self.cards_data)
+        return self.cards_data
 
 
-class AmdGpuData():
+class AmdGpu():
     def __init__(self):
         self.cards_data = []
         self.cards_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
@@ -92,7 +148,9 @@ class AmdGpuData():
         fan_values = [self.pwm2fan(x) for x in pwm_values]
 
         for i in zip(card_names, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values):
-            self.cards_data.append(dict(zip(self.cards_keys, i)))
+            d = dict(zip(self.cards_keys, i))
+            d['vendor'] = GPU_TYPE[0]
+            self.cards_data.append(d)
 
         log.debug(self.cards_data)
         return self.cards_data
@@ -123,10 +181,15 @@ class AmdGpuData():
 
 
 def get_api_data():
-    amd_data = AmdGpuData()
+    if args.gpu_type == GPU_TYPE[0]:
+        gpu_data = AmdGpu()
+    elif args.gpu_type == GPU_TYPE[1]:
+        gpu_data = NvidiaGpu()
+
     data = [
-        dict(cards=amd_data.get_data()),
+        dict(cards=gpu_data.get_data()),
     ]
+
     if args.fake:
         data.append(dict(fake=True))
     log.debug(data)
@@ -171,5 +234,9 @@ if args.api:
     httpd = ThreadedHTTPServer(('0.0.0.0', 8000), HttpRequestHandler)
     httpd.serve_forever()
 else:
-    a = AmdGpuData()
-    a.get_data()
+    if args.gpu_type == GPU_TYPE[0]:
+        a = AmdGpu()
+        a.get_data()
+    elif args.gpu_type == GPU_TYPE[1]:
+        n = NvidiaGpu()
+        n.get_data()

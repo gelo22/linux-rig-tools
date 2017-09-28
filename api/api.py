@@ -34,7 +34,7 @@ class AmdGpuData():
         self.sysfs_temp = 'temp1_input'
         self.sysfs_pwm = 'pwm1'
 
-    def get_path_list(self):
+    def get_data(self):
         """
         Tested on AMDGPU-PRO driver
         """
@@ -119,10 +119,10 @@ class AmdGpuData():
         return res
 
 
-def get_data():
+def get_api_data():
     amd_data = AmdGpuData()
     data = [
-        dict(cards=amd_data.get_path_list()),
+        dict(cards=amd_data.get_data()),
     ]
     if args.fake:
         data.append(dict(fake=True))
@@ -152,7 +152,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/api/v1':
-            self._send_json(get_data())
+            self._send_json(get_api_data())
         else:
             self._send_html(200, '<h1>It works!</h1>')
 
@@ -169,4 +169,4 @@ if args.api:
     httpd.serve_forever()
 else:
     a = AmdGpuData()
-    a.get_path_list()
+    a.get_data()

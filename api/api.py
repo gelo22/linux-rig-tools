@@ -27,9 +27,15 @@ else:
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
+class NvidiaGpuData():
+    def __init__(self):
+        pass
+
+
 class AmdGpuData():
     def __init__(self):
         self.cards_data = []
+        self.cards_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
         self.sysfs_path = '/sys/class/drm/'
         self.sysfs_temp = 'temp1_input'
         self.sysfs_pwm = 'pwm1'
@@ -85,11 +91,8 @@ class AmdGpuData():
         pwm_values = self.read_data(pwm_path_list)
         fan_values = [self.pwm2fan(x) for x in pwm_values]
 
-        self.cards_data = []
-
-        cards_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
         for i in zip(card_names, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values):
-            self.cards_data.append(dict(zip(cards_keys, i)))
+            self.cards_data.append(dict(zip(self.cards_keys, i)))
 
         log.debug(self.cards_data)
         return self.cards_data

@@ -77,7 +77,7 @@ class AmdGpuData():
 
         card_id_list.sort()
 
-        card_keys = ['card{0:02d}'.format(x) for x in card_id_list]
+        card_names = ['card{0:02d}'.format(x) for x in card_id_list]
         temp_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_temp) for x in card_id_list]
         temp_values = self.read_data(temp_path_list)
 
@@ -85,15 +85,14 @@ class AmdGpuData():
         pwm_values = self.read_data(pwm_path_list)
         fan_values = [self.pwm2fan(x) for x in pwm_values]
 
-        r = []
+        self.cards_data = []
 
-        res_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
-        for i in zip(card_keys, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values):
-            r.append(dict(zip(res_keys, i)))
+        cards_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
+        for i in zip(card_names, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values):
+            self.cards_data.append(dict(zip(cards_keys, i)))
 
-        log.debug(r)
-        self.cards_data = r
-        return r
+        log.debug(self.cards_data)
+        return self.cards_data
 
     def pwm2fan(self, pwm):
         return round(int(pwm) / (255 / 100))

@@ -27,10 +27,12 @@ else:
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
-class AmdCardData():
+class AmdGpuData():
     def __init__(self):
         self.cards_data = []
         self.sysfs_path = '/sys/class/drm/'
+        self.sysfs_temp = 'temp1_input'
+        self.sysfs_pwm = 'pwm1'
 
     def get_path_list(self):
         """
@@ -76,10 +78,10 @@ class AmdCardData():
         card_id_list.sort()
 
         card_keys = ['card{0:02d}'.format(x) for x in card_id_list]
-        temp_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type='temp1_input') for x in card_id_list]
+        temp_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_temp) for x in card_id_list]
         temp_values = self.read_data(temp_path_list)
 
-        pwm_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type='pwm1') for x in card_id_list]
+        pwm_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_pwm) for x in card_id_list]
         pwm_values = self.read_data(pwm_path_list)
         fan_values = [self.pwm2fan(x) for x in pwm_values]
 
@@ -104,13 +106,13 @@ class AmdCardData():
                 with open(path, 'r') as f:
                     try:
                         data = int(f.read().rstrip())
-                        if 'temp1_input' in path:
+                        if self.sysfs_temp in path:
                             data = round(data / 1000)
                         res.append(data)
                     except:
                         log.error('Error reading \"{}\"'.format(path))
             else:
-                if 'temp1_input' in path:
+                if self.sysfs_temp in path:
                     fake_data = random.randint(20, 75)
                 else:
                     fake_data = random.randint(0, 255)
@@ -119,7 +121,7 @@ class AmdCardData():
 
 
 def get_data():
-    amd_data = AmdCardData()
+    amd_data = AmdGpuData()
     data = [
         dict(cards=amd_data.get_path_list()),
     ]
@@ -167,5 +169,5 @@ if args.api:
     httpd = ThreadedHTTPServer(('0.0.0.0', 8000), HttpRequestHandler)
     httpd.serve_forever()
 else:
-    a = AmdCardData()
+    a = AmdGpuData()
     a.get_path_list()

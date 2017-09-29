@@ -6,6 +6,7 @@ import re
 import sys
 import os
 import subprocess
+from collections import defaultdict
 from pprint import pprint
 from socket import timeout
 import time
@@ -33,8 +34,17 @@ else:
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
+API_KEYS = (
+    'name', 'card_model', 'driver_version', 'bus_id',
+    'temp', 'fan', 'power_current', 'power_max',
+    'core_load', 'core_clock', 'mem_clock', 'mem_used', 'mem_total', 'vendor',
+)
+
+
 def print_table(data):
     j = json.loads(data)
+
+    d = defaultdict(list)
 
     head = []
     k = []
@@ -46,29 +56,41 @@ def print_table(data):
     v_mem_clock = []
     v_ven = []
 
+    t_head = ('name', 'vendor')
+    t_body = ('temp', 'fan', 'core_load', 'power_current', 'core_clock', 'mem_clock')
+
     for i in j:
-        for card in i.get('cards'):
+        api_data = i.get('cards')
+
+        for card in api_data:
+            for key in card.keys():
+                if key not in API_KEYS:
+                    card[key] = 'null'
             card.update(dict(fill=' '))
-            head.append('+{}'.format('-' * 18))
-            k.append('| {name:17}'.format(**card))
-            v_temp.append('| temp:{fill:5}{temp:2} C{fill:3}'.format(**card))
-            v_fan.append('| fan:{fill:6}{fan:2} %{fill:3}'.format(**card))
-            v_core_load.append('| load:{fill:4}{core_load:3} %{fill:3}'.format(**card))
-            v_power_current.append('| power:{fill:3}{power_current:3} W{fill:3}'.format(**card))
-            v_core_clock.append('| core:{fill:3}{core_clock:4} Mhz '.format(**card))
-            v_mem_clock.append('| mem:{fill:4}{mem_clock:4} Mhz '.format(**card))
-            v_ven.append('| {vendor:16} '.format(**card))
-    print(''.join(head)   + '+')
-    print(''.join(k)      + '|')
-    print(''.join(v_ven)  + '|')
-    print(''.join(head)   + '+')
-    print(''.join(v_core_load) + '|')
-    print(''.join(v_power_current) + '|')
-    print(''.join(v_core_clock) + '|')
-    print(''.join(v_mem_clock) + '|')
-    print(''.join(v_temp) + '|')
-    print(''.join(v_fan)  + '|')
-    print(''.join(head)   + '+\n')
+
+            d['head'].append('+{}'.format('-' * 18))
+            d['name'].append('| {name:17}'.format(**card))
+            d['vendor'].append('| {vendor:16} '.format(**card))
+            d['temp'].append('| temp:{fill:5}{temp:2} C{fill:3}'.format(**card))
+            d['fan'].append('| fan:{fill:6}{fan:2} %{fill:3}'.format(**card))
+            d['core_load'].append('| load:{fill:4}{core_load:3} %{fill:3}'.format(**card))
+            d['power_current'].append('| power:{fill:3}{power_current:3} W{fill:3}'.format(**card))
+            d['core_clock'].append('| core:{fill:3}{core_clock:4} Mhz '.format(**card))
+            d['mem_clock'].append('| mem:{fill:4}{mem_clock:4} Mhz '.format(**card))
+
+    for part in [t_head, t_body]:
+        print_row(d, 'head')
+        for k in part:
+            print_row(d, k)
+            if k == t_body[-1]:
+                print_row(d, 'head', '\n')
+
+
+def print_row(d, key, newline=''):
+    end = '|'
+    if key == 'head':
+        end = '+'
+    print('{data}{end}{newline}'.format(data=''.join(d[key]), end=end, newline=newline))
 
 
 def get_stat():

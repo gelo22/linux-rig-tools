@@ -95,6 +95,8 @@ class AmdGpu():
         self.sysfs_path = '/sys/class/drm/'
         self.sysfs_temp = 'temp1_input'
         self.sysfs_pwm = 'pwm1'
+        self.card_path_tpl = '/sys/class/drm/card{card_id}/device/hwmon/hwmon{hw}/{data_type}'
+        self.card_kernel_path_tpl = '/sys/kernel/debug/dri/{card_id}/amdgpu_pm_info'
 
     def get_data(self):
         """
@@ -104,7 +106,7 @@ class AmdGpu():
         import os
 
         card_id_list = []
-        card_path_tpl = '/sys/class/drm/card{card_id}/device/hwmon/hwmon{hw}/{data_type}'
+
 
         regex = r'^card(?P<card_id>[\d]+)$'
 
@@ -140,16 +142,19 @@ class AmdGpu():
         card_id_list.sort()
 
         card_names = ['card{0:02d}'.format(x) for x in card_id_list]
-        temp_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_temp) for x in card_id_list]
+        temp_path_list = [self.card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_temp) for x in card_id_list]
         temp_values = self.read_data(temp_path_list)
 
-        pwm_path_list = [card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_pwm) for x in card_id_list]
+        pwm_path_list = [self.card_path_tpl.format(card_id=x, hw=x + 1, data_type=self.sysfs_pwm) for x in card_id_list]
         pwm_values = self.read_data(pwm_path_list)
         fan_values = [self.pwm2fan(x) for x in pwm_values]
 
-        for i in zip(card_names, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values):
+        kernel_values = self.read_kernel_data(card_id_list)
+
+        for idx, i in enumerate(zip(card_names, temp_path_list, pwm_path_list, temp_values, pwm_values, fan_values)):
             d = dict(zip(self.cards_keys, i))
             d['vendor'] = GPU_TYPE[0]
+            d.update(kernel_values[idx])
             self.cards_data.append(d)
 
         log.debug(self.cards_data)
@@ -177,6 +182,33 @@ class AmdGpu():
                 else:
                     fake_data = random.randint(0, 255)
                 res.append(fake_data)
+        return res
+
+    def read_kernel_data(self, id_list):
+        res = []
+
+        for cid in id_list:
+            path = self.card_kernel_path_tpl.format(card_id=cid)
+            d = dict()
+
+            if os.path.exists(path) and os.path.isfile(path):
+                with open(path, 'r') as f:
+                    for i in f.readlines():
+                        if 'GPU Load:' in i:
+                            d['core_load'] = int(i.split(' ')[2])
+                        if '(average GPU)' in i:
+                            d['power_current'] = round(float(i.split()[0]))
+                        if '(MCLK)' in i:
+                            d['mem_clock'] = int(i.split()[0])
+                        if '(SCLK)' in i:
+                            d['core_clock'] = int(i.split()[0])
+                        if '(max GPU)' in i:
+                            d['power_max'] = round(float(i.split()[0]))
+                log.debug(path)
+                res.append(d)
+            else:
+                log.error('Error reading \"{}\". Maybe need root access'.format(path))
+        log.debug(res)
         return res
 
 

@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser(description='API client')
 
 parser.add_argument('-s', '--server-list', type=str, nargs='+', required=True)
 parser.add_argument('-i', '--interval', type=int, default=2, help='Get data interval')
+parser.add_argument('--show-host', action='store_true', default=False, help='Show host info')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
 
@@ -85,8 +86,9 @@ def get_stat():
         except timeout:
             log.error('Time out. URL: {}\n'.format(url))
         else:
-            log.info('Host: {}'.format(o.netloc))
-            log.info('API url: {}'.format(url))
+            if args.show_host:
+                log.info('Host: {}'.format(o.netloc))
+                log.info('API url: {}'.format(url))
             print_table(resp)
 
 

@@ -45,8 +45,8 @@ def print_table(data):
         for card in i.get('cards'):
             head.append('+{}'.format('-' * 12))
             k.append('| {name:11}'.format(**card))
-            v_temp.append('| temp {temp:2}C   '.format(**card))
-            v_fan.append('| fan  {fan:2}%   '.format(**card))
+            v_temp.append('| temp: {temp:2} C '.format(**card))
+            v_fan.append('| fan:  {fan:2} % '.format(**card))
             v_ven.append('| {vendor:8}   '.format(**card))
     print(''.join(head)   + '+')
     print(''.join(k)      + '|')

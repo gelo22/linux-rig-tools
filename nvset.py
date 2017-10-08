@@ -88,7 +88,13 @@ def gen_conf(fp=args.config):
         fan=60
     )
 
-    api_data = read_api()[0]['cards']
+    d = read_api()
+    if not d:
+        log.error('API data is empty')
+        return False
+
+    api_data = d[0]['cards']
+
 
     for i in api_data:
         key = i.get('bus_id')

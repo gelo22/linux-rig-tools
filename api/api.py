@@ -10,8 +10,15 @@ import sys
 import subprocess
 import random
 from pprint import pprint
+import threading
 
 
+if sys.version_info[0] < 3:
+    print('Please use Python 3\nExample: python3 {}'.format(sys.argv[0]))
+    sys.exit(1)
+
+
+API_DATA = []
 GPU_TYPE = ['amd', 'nvidia']
 
 parser = argparse.ArgumentParser(description='Miner API')
@@ -250,8 +257,13 @@ def date2json(d):
     return '{}-{}-{} {}:{}:{}'.format(d.year, d.month, d.day, d.hour, d.minute, d.second)
 
 
-def get_api_data():
-    data = [
+def get_api_data(read_interval=args.getdata_interval):
+    global API_DATA
+
+    threading.Timer(read_interval, get_api_data).start()
+    log.debug('Updating API data...')
+
+    API_DATA = [
         dict(
             cards=gpu_data.get_data(),
             ts=date2json(gpu_data.last_ts),
@@ -259,9 +271,8 @@ def get_api_data():
     ]
 
     if args.fake:
-        data.append(dict(fake=True))
-    log.debug(data)
-    return data
+        API_DATA.append(dict(fake=True))
+    log.debug(API_DATA)
 
 
 class HttpRequestHandler(BaseHTTPRequestHandler):
@@ -286,7 +297,7 @@ class HttpRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == '/api/v1':
-            self._send_json(get_api_data())
+            self._send_json(API_DATA)
         else:
             self._send_html(200, '<h1>It works!</h1>')
 
@@ -298,6 +309,8 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 if args.api:
+    log.info('Starting server ...')
+    get_api_data()
     log.info('Server listening on port 8000...')
     httpd = ThreadedHTTPServer(('0.0.0.0', 8000), HttpRequestHandler)
     httpd.serve_forever()

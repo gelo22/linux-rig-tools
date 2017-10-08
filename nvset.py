@@ -75,7 +75,7 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
     except timeout:
         log.error('Time out. URL: {}\n'.format(url))
     else:
-        j = json.loads(resp)
+        j = json.loads(resp.decode('utf-8'))
         if debug:
             pprint(j)
         return(j)

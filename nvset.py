@@ -20,6 +20,7 @@ parser.add_argument('-c', '--config', type=str, required=True, help='For example
 parser.add_argument('-C', '--make-config', action='store_true', default=False, help='Daemon mode')
 parser.add_argument('--nv-settings-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
 parser.add_argument('--nv-smi-path', type=str, default='nvidia-smi', help='Path to nvidia-smi')
+parser.add_argument('--nv-settings-env', type=str, nargs='+', default=['DISPLAY=\":0\"', 'XAUTHORITY=\"/var/run/lightdm/root/:0\"'], help='nvidia-settings extra environment variables')
 parser.add_argument('--api-url', type=str, default='http://localhost:8000/api/v1', help='API url')
 parser.add_argument('--api-timeout', type=int, default=10, help='API read timeout')
 parser.add_argument('-i', '--config-check-interval', type=int, default=5, help='Config file check interval')
@@ -116,16 +117,18 @@ def apply_settings(lst):
     for i in lst:
         i['nv_smi'] = args.nv_smi_path
         i['nv_set'] = args.nv_settings_path
+        if args.nv_settings_env:
+            i['env'] = ' '.join(args.nv_settings_env)
         try:
             cmd = (
-                'sudo {nv_smi} -i {index} -pl {pl}'.format(**i),                                         # set power limit
-                '{nv_set} -a \"[gpu:{index}]/GPUFanControlState=1\" -c :0'.format(**i),                  # gain manual fan control
-                '{nv_set} -a \"[fan:{index}]/GPUTargetFanSpeed={fan}\" -c :0'.format(**i),               # set fan speed
-                '{nv_set} -a \"[gpu:{index}]/GPUPowerMizerMode=1\" -c :0'.format(**i),                   # enable PowerMizer (Prefer Maximum Performance)
-                '{nv_set} -a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\" -c :0'.format(**i),      # set core clok
-                '{nv_set} -a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\" -c :0'.format(**i),  # set memory clock
+                'sudo {nv_smi} -i {index} -pl {pl}'.format(**i),                                                    # set power limit
+                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUFanControlState=1\" -c :0'.format(**i),                  # gain manual fan control
+                '{env} sudo {nv_set} -a \"[fan:{index}]/GPUTargetFanSpeed={fan}\" -c :0'.format(**i),               # set fan speed
+                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUPowerMizerMode=1\" -c :0'.format(**i),                   # enable PowerMizer (Prefer Maximum Performance)
+                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\" -c :0'.format(**i),      # set core clok
+                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\" -c :0'.format(**i),  # set memory clock
             )
-            log.debug(' '.join(cmd))
+            log.debug('; '.join(cmd))
             cmd_list.append(cmd)
         except KeyError:
             print('Invalid config file \"{}\". Please check key names'.format(args.config))

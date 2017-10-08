@@ -20,6 +20,7 @@ parser.add_argument('-C', '--make-config', action='store_true', default=False, h
 parser.add_argument('--nv-settings-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
 parser.add_argument('--nv-smi-path', type=str, default='nvidia-smi', help='Path to nvidia-smi')
 parser.add_argument('--api-url', type=str, default='http://localhost:8000/api/v1', help='API url')
+parser.add_argument('--api-timeout', type=int, default=10, help='API read timeout')
 parser.add_argument('-i', '--config-check-interval', type=int, default=5, help='Config file check interval')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
@@ -61,14 +62,14 @@ def parse_conf(fp=args.config):
     return gpu_list
 
 
-def read_api(url=args.api_url, debug=args.debug):
+def read_api(url=args.api_url, debug=args.debug, timeout=args.api_timeout):
     import urllib.request
     from urllib.error import HTTPError, URLError
     from urllib.parse import urlparse
     from socket import timeout
 
     try:
-        resp = urllib.request.urlopen(url, timeout=2).read()
+        resp = urllib.request.urlopen(url, timeout=timeout).read()
     except (HTTPError, URLError) as error:
         log.error('Data is not retrieved. Error: {}\nURL: {}\n'.format(error, url))
     except timeout:

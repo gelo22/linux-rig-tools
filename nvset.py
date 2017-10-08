@@ -62,14 +62,14 @@ def parse_conf(fp=args.config):
     return gpu_list
 
 
-def read_api(url=args.api_url, debug=args.debug, timeout=args.api_timeout):
+def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
     import urllib.request
     from urllib.error import HTTPError, URLError
     from urllib.parse import urlparse
     from socket import timeout
 
     try:
-        resp = urllib.request.urlopen(url, timeout=timeout).read()
+        resp = urllib.request.urlopen(url, timeout=api_timeout).read()
     except (HTTPError, URLError) as error:
         log.error('Data is not retrieved. Error: {}\nURL: {}\n'.format(error, url))
     except timeout:

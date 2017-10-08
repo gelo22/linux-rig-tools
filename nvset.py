@@ -17,12 +17,19 @@ if sys.version_info[0] < 3:
 
 parser = argparse.ArgumentParser(description='Nvidia GPU setup')
 parser.add_argument('-c', '--config', type=str, required=True, help='For example: -c rig01.conf')
-parser.add_argument('-C', '--make-config', action='store_true', default=False, help='Daemon mode')
-parser.add_argument('--nv-settings-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
+parser.add_argument('-M', '--make-config', action='store_true', default=False, help='Make config template')
+parser.add_argument('--nv-set-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
 parser.add_argument('--nv-smi-path', type=str, default='nvidia-smi', help='Path to nvidia-smi')
-parser.add_argument('--nv-settings-env', type=str, nargs='+', default=['DISPLAY=\":0\"', 'XAUTHORITY=\"/var/run/lightdm/root/:0\"'], help='nvidia-settings extra environment variables')
+parser.add_argument('--nv-set-env', type=str, nargs='+', default=['DISPLAY=\":0\"', 'XAUTHORITY=\"/var/run/lightdm/root/:0\"'], help='nvidia-settings extra environment variables')
 parser.add_argument('--api-url', type=str, default='http://localhost:8000/api/v1', help='API url')
 parser.add_argument('--api-timeout', type=int, default=10, help='API read timeout')
+
+#
+parser.add_argument('--pl', type=int, default=80, help='Default power limit')
+parser.add_argument('--core', type=int, default=0, help='Default core clock')
+parser.add_argument('--mem', type=int, default=0, help='Default memory clock')
+parser.add_argument('--fan', type=int, default=60, help='Default FAN speed')
+
 parser.add_argument('-i', '--config-check-interval', type=int, default=5, help='Config file check interval')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
@@ -95,10 +102,10 @@ def gen_conf(fp=args.config):
         key = i.get('bus_id')
 
         card_conf = dict(
-            pl=100,
-            core=0,
-            mem=0,
-            fan=60,
+            pl=args.pl,
+            core=args.core,
+            mem=args.mem,
+            fan=args.fan,
             uuid=i.get('uuid'),
             index=i.get('index'),
         )
@@ -116,9 +123,9 @@ def apply_settings(lst):
 
     for i in lst:
         i['nv_smi'] = args.nv_smi_path
-        i['nv_set'] = args.nv_settings_path
-        if args.nv_settings_env:
-            i['env'] = ' '.join(args.nv_settings_env)
+        i['nv_set'] = args.nv_set_path
+        if args.nv_set_env:
+            i['env'] = ' '.join(args.nv_set_env)
         try:
             cmd = (
                 'sudo {nv_smi} -i {index} -pl {pl}'.format(**i),                                                    # set power limit

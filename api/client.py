@@ -16,7 +16,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='API client')
 
-parser.add_argument('-s', '--server-list', type=str, nargs='+', required=True)
+parser.add_argument('-s', '--server-list', type=str, nargs='+', default=['http://localhost:8000/api/v1', ])
 parser.add_argument('-i', '--interval', type=int, default=2, help='Get data interval')
 parser.add_argument('--show-host', action='store_true', default=False, help='Show host info')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')

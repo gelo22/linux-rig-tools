@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import json
 import os
 import sys
@@ -28,7 +29,7 @@ args = parser.parse_args()
 
 
 import configparser
-config = configparser.ConfigParser()
+config = configparser.ConfigParser(dict_type=OrderedDict)
 config.read(args.config)
 
 
@@ -82,13 +83,6 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
 
 
 def gen_conf(fp=args.config):
-    def_conf = dict(
-        pl=100,
-        core=0,
-        mem=0,
-        fan=60
-    )
-
     d = read_api()
     if not d:
         log.error('API data is empty')
@@ -96,18 +90,19 @@ def gen_conf(fp=args.config):
 
     api_data = d[0]['cards']
 
-
     for i in api_data:
         key = i.get('bus_id')
 
-        def_conf.update(
-            dict(
-                uuid=i.get('uuid'),
-                index=i.get('index'),
-            )
+        card_conf = dict(
+            pl=100,
+            core=0,
+            mem=0,
+            fan=60,
+            uuid=i.get('uuid'),
+            index=i.get('index'),
         )
 
-        config[key] = def_conf
+        config[key] = card_conf
 
     with open(fp, 'w') as configfile:
         log.info('Writing config file \"{}\" ...'.format(fp))

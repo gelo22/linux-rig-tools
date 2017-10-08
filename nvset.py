@@ -15,6 +15,9 @@ if sys.version_info[0] < 3:
     sys.exit(1)
 
 
+import configparser
+
+
 parser = argparse.ArgumentParser(description='Nvidia GPU setup')
 parser.add_argument('-c', '--config', type=str, required=True, help='For example: -c rig01.conf')
 parser.add_argument('-M', '--make-config', action='store_true', default=False, help='Make config template')
@@ -36,11 +39,6 @@ parser.add_argument('--debug', action='store_true', default=False, help='Debug m
 args = parser.parse_args()
 
 
-import configparser
-config = configparser.ConfigParser(dict_type=OrderedDict)
-config.read(args.config)
-
-
 if args.debug:
     DEBUG = True
     LOG_LEVEL = log.DEBUG
@@ -52,6 +50,9 @@ log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
 def parse_conf(fp=args.config):
+    config = configparser.ConfigParser(dict_type=OrderedDict)
+    config.read(fp)
+
     gpu_list = []
 
     if not os.path.exists(fp):
@@ -91,6 +92,9 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
 
 
 def gen_conf(fp=args.config):
+    config = configparser.ConfigParser(dict_type=OrderedDict)
+    config.read(fp)
+
     d = read_api()
     if not d:
         log.error('API data is empty')

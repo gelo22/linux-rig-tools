@@ -46,16 +46,6 @@ def print_table(data):
 
     d = defaultdict(list)
 
-    head = []
-    k = []
-    v_temp = []
-    v_fan = []
-    v_power_current = []
-    v_core_load = []
-    v_core_clock = []
-    v_mem_clock = []
-    v_ven = []
-
     t_head = ('name', 'vendor')
     t_body = ('temp', 'fan', 'core_load', 'power_current', 'core_clock', 'mem_clock')
 
@@ -72,7 +62,7 @@ def print_table(data):
             d['name'].append('| {name:17}'.format(**card))
             d['vendor'].append('| {vendor:16} '.format(**card))
             d['temp'].append('| temp:{fill:5}{temp:2} C{fill:3}'.format(**card))
-            d['fan'].append('| fan:{fill:6}{fan:2} %{fill:3}'.format(**card))
+            d['fan'].append('| fan:{fill:5}{fan:3} %{fill:3}'.format(**card))
             d['core_load'].append('| load:{fill:4}{core_load:3} %{fill:3}'.format(**card))
             d['power_current'].append('| power:{fill:3}{power_current:3} W{fill:3}'.format(**card))
             d['core_clock'].append('| core:{fill:3}{core_clock:4} Mhz '.format(**card))

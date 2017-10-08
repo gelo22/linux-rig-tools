@@ -70,13 +70,13 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
     from socket import timeout
 
     try:
-        resp = urllib.request.urlopen(url, timeout=api_timeout).read()
+        resp = urllib.request.urlopen(url, timeout=api_timeout).read().decode('utf-8')
     except (HTTPError, URLError) as error:
         log.error('Data is not retrieved. Error: {}\nURL: {}\n'.format(error, url))
     except timeout:
         log.error('Time out. URL: {}\n'.format(url))
     else:
-        j = json.loads(resp.decode('utf-8'))
+        j = json.loads(resp)
         if debug:
             pprint(j)
         return(j)

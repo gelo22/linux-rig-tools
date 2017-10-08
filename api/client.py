@@ -102,7 +102,7 @@ def get_stat():
         url = o.geturl()
 
         try:
-            resp = urllib.request.urlopen(url, timeout=2).read()
+            resp = urllib.request.urlopen(url, timeout=2).read().decode('utf-8')
         except (HTTPError, URLError) as error:
             log.error('Data is not retrieved. Error: {}\nURL: {}\n'.format(error, url))
         except timeout:

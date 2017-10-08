@@ -1,5 +1,7 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+import datetime
+import time
 import argparse
 import logging as log
 import json
@@ -15,7 +17,9 @@ GPU_TYPE = ['amd', 'nvidia']
 parser = argparse.ArgumentParser(description='Miner API')
 
 parser.add_argument('--api', action='store_true', default=False, help='Start API server')
+parser.add_argument('--getdata-interval', type=int, default=3, help='Get data interval')
 parser.add_argument('--gpu-type', type=str, action='store', required=True, choices=GPU_TYPE)
+parser.add_argument('--debug-delay', type=int, default=0)
 parser.add_argument('--debug', action='store_true', default=False)
 parser.add_argument('--fake', action='store_true', default=False, help='Test mode, enable fake data')
 
@@ -36,6 +40,7 @@ log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 class NvidiaGpu():
     def __init__(self):
         self.cards_data = []
+        self.last_ts = datetime.datetime.now()
         self.cards_keys = (
             'index', 'card_model', 'uuid', 'driver_version', 'bus_id', 'pcie_gen',
             'core_load', 'temp', 'fan', 'power_current', 'core_clock', 'mem_clock',
@@ -57,6 +62,27 @@ class NvidiaGpu():
     def get_data(self):
         if args.fake:
             log.info(' '.join(self.nvidia_smi))
+
+        ts = datetime.datetime.now()
+        ts_delta = ts - self.last_ts
+
+        if not self.cards_data:
+            log.debug('No cards data, running nvidia-smi...')
+            self.run_cmd()
+
+        if ts_delta.total_seconds() > args.getdata_interval:
+            self.last_ts = datetime.datetime.now()
+            self.run_cmd()
+        else:
+            log.debug('Using cached data, next update in {} seconds ...'.format(round(args.getdata_interval - ts_delta.total_seconds())))
+
+        return self.cards_data
+
+    def run_cmd(self):
+        if args.debug_delay:
+            time.sleep(args.debug_delay)
+
+        self.cards_data = []
 
         proc = subprocess.Popen(self.nvidia_smi, stderr=subprocess.PIPE, stdout=subprocess.PIPE).communicate()
         for card in proc[0].decode('utf-8').split('\n'):
@@ -91,6 +117,7 @@ class NvidiaGpu():
 class AmdGpu():
     def __init__(self):
         self.cards_data = []
+        self.last_ts = datetime.datetime.now()
         self.cards_keys = ('name', 'temp_path', 'pwm_path', 'temp', 'pwm', 'fan')
         self.sysfs_path = '/sys/class/drm/'
         self.sysfs_temp = 'temp1_input'
@@ -106,6 +133,7 @@ class AmdGpu():
         import os
 
         card_id_list = []
+        self.last_ts = datetime.datetime.now()
 
 
         regex = r'^card(?P<card_id>[\d]+)$'
@@ -212,14 +240,22 @@ class AmdGpu():
         return res
 
 
-def get_api_data():
-    if args.gpu_type == GPU_TYPE[0]:
-        gpu_data = AmdGpu()
-    elif args.gpu_type == GPU_TYPE[1]:
-        gpu_data = NvidiaGpu()
+if args.gpu_type == GPU_TYPE[0]:
+    gpu_data = AmdGpu()
+elif args.gpu_type == GPU_TYPE[1]:
+    gpu_data = NvidiaGpu()
 
+
+def date2json(d):
+    return '{}-{}-{} {}:{}:{}'.format(d.year, d.month, d.day, d.hour, d.minute, d.second)
+
+
+def get_api_data():
     data = [
-        dict(cards=gpu_data.get_data()),
+        dict(
+            cards=gpu_data.get_data(),
+            ts=date2json(gpu_data.last_ts),
+        ),
     ]
 
     if args.fake:

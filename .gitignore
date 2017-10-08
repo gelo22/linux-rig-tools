@@ -102,3 +102,6 @@ ENV/
 
 # macos
 .DS_Store
+
+# config files
+*.ini

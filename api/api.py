@@ -63,7 +63,7 @@ class NvidiaGpu():
         self.nvidia_smi = (
             'nvidia-smi',
             '--query-gpu={}'.format(','.join(self.smi_keys)),
-            '--format=csv'
+            '--format=csv,noheader,nounits'
         )
 
     def get_data(self):
@@ -97,22 +97,19 @@ class NvidiaGpu():
                 d = dict(zip(self.cards_keys, card.split(', ')))
                 index = d.get('index')
 
-                if index == 'index':
-                    continue
-
                 index = int(index)
                 d.update(dict(
                     index=index,
                     name='card{0:02d}'.format(index),
                     temp=int(d.get('temp')),
-                    power_current=round(float(d.get('power_current').split(' ')[0])),
-                    mem_load=int(d.get('mem_load').split(' ')[0]),
-                    core_load=int(d.get('core_load').split(' ')[0]),
-                    core_clock=int(d.get('core_clock').split(' ')[0]),
-                    mem_used=int(d.get('mem_used').split(' ')[0]),
-                    mem_total=int(d.get('mem_total').split(' ')[0]),
-                    mem_clock=int(d.get('mem_clock').split(' ')[0]),
-                    fan=int(d.get('fan').split(' ')[0]),
+                    power_current=round(float(d.get('power_current'))),
+                    mem_load=int(d.get('mem_load')),
+                    core_load=int(d.get('core_load')),
+                    core_clock=int(d.get('core_clock')),
+                    mem_used=int(d.get('mem_used')),
+                    mem_total=int(d.get('mem_total')),
+                    mem_clock=int(d.get('mem_clock')),
+                    fan=int(d.get('fan')),
                     vendor=GPU_TYPE[1],
                 ))
 

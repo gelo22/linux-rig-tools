@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import time
 import logging as log
+import subprocess
 
 
 if sys.version_info[0] < 3:
@@ -27,7 +28,7 @@ parser.add_argument('--nv-set-env', type=str, nargs='+', default=['DISPLAY=\":0\
 parser.add_argument('--api-url', type=str, default='http://localhost:8000/api/v1', help='API url')
 parser.add_argument('--api-timeout', type=int, default=10, help='API read timeout')
 
-#
+# overclock default values
 parser.add_argument('--pl', type=int, default=80, help='Default power limit')
 parser.add_argument('--core', type=int, default=0, help='Default core clock')
 parser.add_argument('--mem', type=int, default=0, help='Default memory clock')
@@ -56,7 +57,7 @@ def parse_conf(fp=args.config):
     gpu_list = []
 
     if not os.path.exists(fp):
-        print('Config file \"{}\" not found'.format(fp))
+        log.error('Config file \"{}\" not found'.format(fp))
         sys.exit(1)
 
     print('Parsing config \"{}\"'.format(fp))
@@ -67,7 +68,7 @@ def parse_conf(fp=args.config):
             d[key] = config[section][key]
         if d:
             gpu_list.append(d)
-    print('Parsing finished'.format(fp))
+    log.info('Parsing finished'.format(fp))
     pprint(gpu_list)
     return gpu_list
 
@@ -122,36 +123,48 @@ def gen_conf(fp=args.config):
 
 
 def apply_settings(lst):
-    print('Applying settings...')
-    cmd_list = []
+    log.info('Applying settings...')
+    if not args.debug:
+        os.system('sudo {} -pm ENABLED'.format(args.nv_smi_path)) # set persistent mode on all GPU
 
     for i in lst:
         i['nv_smi'] = args.nv_smi_path
         i['nv_set'] = args.nv_set_path
         if args.nv_set_env:
             i['env'] = ' '.join(args.nv_set_env)
+
+        nv_attr = [
+            '{env} sudo {nv_set}',
+            '-a \"[gpu:{index}]/GPUFanControlState=1\"',                   # gain manual fan control
+            '-a \"[fan:{index}]/GPUTargetFanSpeed={fan}\"',                # set fan speed
+            '-a \"[gpu:{index}]/GPUPowerMizerMode=1\"',                    # enable PowerMizer (Prefer Maximum Performance)
+            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\"',       # set core clock
+            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\"',   # set memory clock
+            '-c :0',
+        ]
+
         try:
             cmd = (
-                'sudo {nv_smi} -i {index} -pl {pl}'.format(**i),                                                    # set power limit
-                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUFanControlState=1\" -c :0'.format(**i),                  # gain manual fan control
-                '{env} sudo {nv_set} -a \"[fan:{index}]/GPUTargetFanSpeed={fan}\" -c :0'.format(**i),               # set fan speed
-                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUPowerMizerMode=1\" -c :0'.format(**i),                   # enable PowerMizer (Prefer Maximum Performance)
-                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\" -c :0'.format(**i),      # set core clok
-                '{env} sudo {nv_set} -a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\" -c :0'.format(**i),  # set memory clock
+                'sudo {nv_smi} -i {index} -pl {pl}'.format(**i),           # set power limit
+                ' '.join(nv_attr).format(**i),
             )
             log.debug('; '.join(cmd))
-            cmd_list.append(cmd)
-        except KeyError:
-            print('Invalid config file \"{}\". Please check key names'.format(args.config))
-            sys.exit(1)
 
-    if not args.debug: # run all commands
-        os.system('sudo {} -pm ENABLED'.format(args.nv_smi_path)) # set persistent mode on all GPU
-        for i in cmd_list:
-            for cmd in i:
-                os.system(cmd)
-        os.system('sudo {}'.format(args.nv_smi_path)) # get nvidia-smi status
-    print('Settings applied...')
+            run_proc(cmd)
+        except KeyError:
+            log.error('Invalid config file \"{}\". Please check key names'.format(args.config))
+            sys.exit(1)
+    log.info('Settings applied...')
+
+
+def run_proc(cmd_list):
+    for cmd in cmd_list:
+        out, err = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE).communicate()
+        log.info(cmd)
+        if out:
+            log.warning(out.decode('utf-8').strip())
+        if err:
+            log.error(err.decode('utf-8').strip())
 
 
 def check_md5(fp):
@@ -176,12 +189,11 @@ if args.daemon:
         cur_md5 = check_md5(args.config)
 
         if cur_md5 != prev_md5:
-            print('Config file \"{}\" changed!'.format(args.config))
+            log.warning('Config file \"{}\" changed!'.format(args.config))
             prev_md5 = cur_md5
+
             parse_or_genconf()
         else:
-            if not args.debug:
-                os.system('sudo {}'.format(args.nv_smi_path)) # get nvidia-smi status
-            print('Awaiting changes in \"{}\", sleeping...'.format(args.config))
+            log.info('Awaiting changes in \"{}\", sleeping...'.format(args.config))
 else:
     parse_or_genconf()

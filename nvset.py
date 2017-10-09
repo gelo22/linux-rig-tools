@@ -169,6 +169,8 @@ def set_fan():
 
 
 def apply_settings(lst):
+    global FIRST_RUN
+
     if FIRST_RUN:
         log.info('First run, waiting {} seconds ...'.format(args.start_delay))
         time.sleep(args.start_delay)

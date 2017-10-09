@@ -174,9 +174,9 @@ def run_proc(cmd_list):
 
 
 def check_md5(fp):
-    log.info('Calculating MD5 hash ...')
     check_config_file(fp)
     md5 = hashlib.md5(open(fp, 'rb').read()).hexdigest()
+    log.debug('{} {}'.format(fp, md5))
     return md5
 
 

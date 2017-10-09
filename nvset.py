@@ -33,6 +33,8 @@ parser.add_argument('--pl', type=int, default=80, help='Default power limit')
 parser.add_argument('--core', type=int, default=0, help='Default core clock')
 parser.add_argument('--mem', type=int, default=0, help='Default memory clock')
 parser.add_argument('--fan', type=int, default=60, help='Default FAN speed')
+parser.add_argument('--fan-auto', action='store_true', default=False, help='Enable FAN auto mode')
+parser.add_argument('--max-temp', type=int, default=70)
 
 parser.add_argument('-i', '--config-check-interval', type=int, default=5, help='Config file check interval')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')
@@ -128,6 +130,41 @@ def gen_conf(fp=args.config):
         config.write(configfile)
 
 
+def set_fan():
+    d = read_api()
+    if not d:
+        log.error('API data is empty')
+        return False
+
+    api_data = d[0]['cards']
+
+    cmd_list = []
+    for i in api_data:
+        i['nv_set'] = args.nv_set_path
+        i['env'] = ' '.join(args.nv_set_env)
+
+        cur_temp = i.get('temp')
+        cur_fan = i.get('fan')
+        temp_delta = abs(cur_temp - (cur_fan - 20))
+
+        new_fan = cur_temp + 20
+        fan_delta = abs(new_fan - cur_fan)
+
+        if temp_delta > 2 and cur_temp < args.max_temp:
+            i['new_fan'] = new_fan
+
+        if cur_temp >= args.max_temp or new_fan > 100:
+            new_fan = 100
+            i['new_fan'] = new_fan
+
+        print(fan_delta, cur_temp >= args.max_temp, new_fan, cur_fan)
+        if all([fan_delta > 5, cur_temp >= args.max_temp, 100 > new_fan > cur_fan]):
+            cmd = '{env} sudo {nv_set} -a \"[fan:{index}]/GPUTargetFanSpeed={new_fan}\"'.format(**i)
+            cmd_list.append(cmd)
+
+    run_proc(cmd_list)
+
+
 def apply_settings(lst):
     log.info('Applying settings...')
     if not args.debug:
@@ -144,10 +181,13 @@ def apply_settings(lst):
             '-a \"[gpu:{index}]/GPUFanControlState=1\"',                   # gain manual fan control
             '-a \"[fan:{index}]/GPUTargetFanSpeed={fan}\"',                # set fan speed
             '-a \"[gpu:{index}]/GPUPowerMizerMode=1\"',                    # enable PowerMizer (Prefer Maximum Performance)
-            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\"',       # set core clock
-            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\"',   # set memory clock
+            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[2]={core}\"',       # set core clock
+            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[2]={mem}\"',   # set memory clock
             '-c :0',
         ]
+
+        if args.fan_auto:
+            nv_attr = nv_attr[0:1] + nv_attr[3:]
 
         try:
             cmd = (
@@ -163,7 +203,10 @@ def apply_settings(lst):
     log.info('Settings applied...')
 
 
-def run_proc(cmd_list):
+def run_proc(cmd_list, fake=False):
+    if fake:
+        return
+
     for cmd in cmd_list:
         out, err = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE).communicate()
         log.info(cmd)
@@ -194,6 +237,9 @@ if args.daemon:
 
     while True:
         cur_md5 = check_md5(args.config)
+
+        if args.fan_auto:
+            set_fan()
 
         if cur_md5 != prev_md5:
             log.warning('Config file \"{}\" changed!'.format(args.config))

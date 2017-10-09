@@ -50,15 +50,19 @@ else:
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
 
 
+def check_config_file(fp):
+    if not os.path.exists(fp):
+        log.error('Config file \"{}\" not found'.format(fp))
+        sys.exit(1)
+
+
 def parse_conf(fp=args.config):
     config = configparser.ConfigParser(dict_type=OrderedDict)
     config.read(fp)
 
     gpu_list = []
 
-    if not os.path.exists(fp):
-        log.error('Config file \"{}\" not found'.format(fp))
-        sys.exit(1)
+    check_config_file(fp)
 
     print('Parsing config \"{}\"'.format(fp))
 
@@ -78,6 +82,8 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
     from urllib.error import HTTPError, URLError
     from urllib.parse import urlparse
     from socket import timeout
+
+    log.info('Reading API ...')
 
     try:
         resp = urllib.request.urlopen(url, timeout=api_timeout).read().decode('utf-8')
@@ -168,6 +174,8 @@ def run_proc(cmd_list):
 
 
 def check_md5(fp):
+    log.info('Calculating MD5 hash ...')
+    check_config_file(fp)
     md5 = hashlib.md5(open(fp, 'rb').read()).hexdigest()
     return md5
 
@@ -185,7 +193,6 @@ if args.daemon:
     prev_md5 = None
 
     while True:
-        time.sleep(args.config_check_interval)
         cur_md5 = check_md5(args.config)
 
         if cur_md5 != prev_md5:
@@ -195,5 +202,7 @@ if args.daemon:
             parse_or_genconf()
         else:
             log.info('Awaiting changes in \"{}\", sleeping...'.format(args.config))
+
+        time.sleep(args.config_check_interval)
 else:
     parse_or_genconf()

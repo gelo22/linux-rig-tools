@@ -21,6 +21,7 @@ import configparser
 
 parser = argparse.ArgumentParser(description='Nvidia GPU setup')
 parser.add_argument('-c', '--config', type=str, required=True, help='For example: -c rig01.conf')
+parser.add_argument('--start-delay', type=int, default=15, help='Add delay if first run')
 parser.add_argument('-M', '--make-config', action='store_true', default=False, help='Make config template')
 parser.add_argument('--nv-set-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
 parser.add_argument('--nv-smi-path', type=str, default='nvidia-smi', help='Path to nvidia-smi')
@@ -50,6 +51,8 @@ else:
     LOG_LEVEL = log.INFO
 
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
+
+FIRST_RUN = True
 
 
 def check_config_file(fp):
@@ -166,6 +169,11 @@ def set_fan():
 
 
 def apply_settings(lst):
+    if FIRST_RUN:
+        log.info('First run, waiting {} seconds ...'.format(args.start_delay))
+        time.sleep(args.start_delay)
+        FIRST_RUN = False
+
     log.info('Applying settings...')
     if not args.debug:
         os.system('sudo {} -pm ENABLED'.format(args.nv_smi_path)) # set persistent mode on all GPU

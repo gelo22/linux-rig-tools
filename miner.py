@@ -44,10 +44,9 @@ class EthMiner():
         self.ETHMINER_API = dict(zip(self.ETHMINER_API_KEYS, self.ETHMINER_API_VALUES))
         self.ETHMINER_TPL = dict(method='', jsonrpc='2.0', id=0)
 
+        self.HASHRATE_STAT = []
+        self.HASHRATE_EMPTY = []
         self.HASHRATE_STAT_SAMPLES = 16
-
-        self.miner_restart_delay = 1
-        self.sys_reboot_delay = self.miner_restart_delay + 2
 
         self.reset_data()
 
@@ -75,73 +74,61 @@ class EthMiner():
             self.reset_data()
             return None
 
-
     def reset_data(self):
-        self.HASHRATE_STAT = []
-        self.HASHRATE_EMPTY = []
-
         self.total_hashrate = 0
         self.valid = 0
         self.rejected = 0
         self.miner_uptime = 0
         self.average_hashrate = 0
         self.share_rate = 0
-        self.miner_restart_event = False
 
     def watchdog(self):
         miner_data = self.send_json(action=self.ETHMINER_API_KEYS[0])
-        miner_ready = self.valid > 5
 
-        if self.minimal_hashrate > self.average_hashrate:
+        stat_isfull = len(self.HASHRATE_STAT) > self.HASHRATE_STAT_SAMPLES
+        empty_isfull = len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES
+
+        if stat_isfull:
+            self.HASHRATE_STAT.pop(0)
+        if self.total_hashrate > 0:
+            self.HASHRATE_STAT.append(self.total_hashrate)
+
+        try:
+            self.average_hashrate = round(sum(self.HASHRATE_STAT) / len(self.HASHRATE_STAT), 2)
+            self.share_rate = round(self.valid / self.miner_uptime, 2)
+        except ZeroDivisionError as e:
+            log.error(e)
+
+        if miner_data:
+            self.version, self.miner_uptime = miner_data[0], miner_data[1]
+            self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
+            self.fix_types()
+        else:
+            self.HASHRATE_EMPTY.append(1)
+
+        if stat_isfull:
+            self.HASHRATE_STAT = []
+            reboot_delay = 30
+            log.warning('System reboot in {} seconds ...'.format(reboot_delay))
+            time.sleep(reboot_delay)
+            os.system('sudo reboot -dnf')
+
+        if args.debug:
             log.debug(self.HASHRATE_STAT)
             log.debug(self.HASHRATE_EMPTY)
 
-        self.stat_isfull = len(self.HASHRATE_STAT) > self.HASHRATE_STAT_SAMPLES
-        if miner_ready:
-            if self.stat_isfull:
-                self.HASHRATE_STAT.pop(0)
-            self.HASHRATE_STAT.append(self.total_hashrate)
-
-            try:
-                self.average_hashrate = round(sum(self.HASHRATE_STAT) / len(self.HASHRATE_STAT), 2)
-                self.share_rate = round(self.valid / self.miner_uptime, 2)
-            except ZeroDivisionError as e:
-                log.error(e)
-
-        if miner_data and not self.miner_restart_event:
-            self.version, self.miner_uptime = miner_data[0], int(miner_data[1])
-            self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
-            self.total_hashrate, self.valid, self.rejected = int(self.total_hashrate), int(self.valid), int(self.rejected)
-            self.total_hashrate = round(self.total_hashrate / 1000, 2)
-
-            self.miner_restart_event = all([
-                self.stat_isfull,
-                self.average_hashrate < self.minimal_hashrate,
-                miner_ready,
-            ])
-            if self.miner_restart_event:
-                self.HASHRATE_STAT = []
-                restart_delay = 3
-                log.warning('Miner restart event in {} seconds ...'.format(restart_delay))
-                # send_json(self.ETHMINER_API_KEYS[1])
-                time.sleep(restart_delay)
-
-        if self.miner_restart_event:
-            self.HASHRATE_EMPTY.append(1)
-
-            if len(self.HASHRATE_EMPTY) > 10 and self.miner_uptime >= self.sys_reboot_delay:
-                self.HASHRATE_EMPTY = []
-                self.miner_restart_event = False
-                reboot_delay = 10
-                log.warning('Miner hashrate is empty. System reboot in {} seconds ...'.format(reboot_delay))
-                time.sleep(reboot_delay)
-                # os.system('sudo reboot -dnf')
-
-        if args.debug:
             if miner_data:
-                miner_stat = [self.version, str(self.miner_uptime), str(self.total_hashrate), str(self.valid), str(self.rejected)]
+                miner_stat = [
+                    self.version, str(self.miner_uptime),
+                    str(self.total_hashrate), str(self.valid), str(self.rejected)
+                ]
                 log.debug('Miner version: {}, uptime: {}, current hashrate: {}, valid: {}, rejected: {}'.format(*miner_stat))
-            log.info('Average hashrate: {}; Share rate: {}/min\n'.format(str(self.average_hashrate), self.share_rate))
+            log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
+
+    def fix_types(self):
+        self.miner_uptime = int(self.miner_uptime)
+        self.valid, self.rejected = int(self.valid), int(self.rejected)
+        self.total_hashrate = round(int(self.total_hashrate) / 1000, 2)
 
     def parse_dmesg(self):
         pass

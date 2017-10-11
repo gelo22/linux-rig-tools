@@ -10,10 +10,11 @@ import time
 import logging as log
 import subprocess
 
+from app.core import check_python
+from app.settings import API_URL
 
-if sys.version_info[0] < 3:
-    print('Please use Python 3\nExample: python3 {}'.format(sys.argv[0]))
-    sys.exit(1)
+
+check_python()
 
 
 import configparser
@@ -26,7 +27,7 @@ parser.add_argument('-M', '--make-config', action='store_true', default=False, h
 parser.add_argument('--nv-set-path', type=str, default='nvidia-settings', help='Path to nvidia-settings')
 parser.add_argument('--nv-smi-path', type=str, default='nvidia-smi', help='Path to nvidia-smi')
 parser.add_argument('--nv-set-env', type=str, nargs='+', default=['DISPLAY=\":0\"', 'XAUTHORITY=\"/var/run/lightdm/root/:0\"'], help='nvidia-settings extra environment variables')
-parser.add_argument('--api-url', type=str, default='http://localhost:8000/api/v1', help='API url')
+parser.add_argument('--api-url', type=str, default=API_URL, help='API url')
 parser.add_argument('--api-timeout', type=int, default=10, help='API read timeout')
 
 # overclock default values

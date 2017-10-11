@@ -106,7 +106,7 @@ class EthMiner():
         else:
             self.HASHRATE_EMPTY.append(1)
 
-        if stat_isfull:
+        if stat_isfull and (self.average_hashrate < self.minimal_hashrate):
             self.HASHRATE_STAT = []
             reboot_delay = 30
             log.warning('System reboot in {} seconds ...'.format(reboot_delay))

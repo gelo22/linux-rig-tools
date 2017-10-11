@@ -17,6 +17,7 @@ ini_fp = os.path.join(ROOT_DIR, 'oc.ini')
 path_list =(
     api_fp,
     oc_fp,
+    miner_fp,
     ini_fp
 )
 

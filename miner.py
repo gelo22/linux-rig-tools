@@ -20,6 +20,7 @@ parser.add_argument('--minimal-hashrate', type=int, required=True, help='Miner m
 parser.add_argument('--hashrate-delta-reboot', type=int, default=15)
 parser.add_argument('--miner-api-host', type=str, default='localhost', help='Miner API host')
 parser.add_argument('--miner-api-port', type=int, default=3333, help='Miner API port')
+parser.add_argument('--sys-reboot-delay', type=int, default=60)
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
 
 
@@ -107,9 +108,11 @@ class EthMiner():
             self.HASHRATE_EMPTY.append(1)
 
         if all([stat_isfull, self.average_hashrate < self.minimal_hashrate, self.valid > 10]):
+            log.warning('Average hashrate {} lower than {}'.format(self.average_hashrate, self.minimal_hashrate))
             self.sys_reboot()
 
         if len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES * 4:
+            log.warning('Miner API is down?')
             self.sys_reboot()
 
         if args.debug:
@@ -125,9 +128,8 @@ class EthMiner():
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
     def sys_reboot(self):
-        reboot_delay = 30
-        log.warning('System reboot in {} seconds ...'.format(reboot_delay))
-        time.sleep(reboot_delay)
+        log.warning('System reboot in {} seconds ...'.format(args.sys_reboot_delay))
+        time.sleep(args.sys_reboot_delay)
         os.system('sudo reboot -dnf')
 
     def fix_types(self):

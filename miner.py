@@ -65,7 +65,7 @@ def parse_dmesg():
         log_list.append('\n')
     log_list.append('=' * 16)
 
-    write_file(log_fp, log_list, mode='a', debug=True)
+    write_file(log_fp, log_list, mode='a', debug=True, sync=True)
 
 
 class EthMiner():

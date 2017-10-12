@@ -16,7 +16,9 @@ def check_python():
         sys.exit(1)
 
 
-def write_file(fp, text, mode='w', debug=False):
+def write_file(fp, text, mode='w', debug=False, sync=False):
+    import os
+
     if type(text) == list:
         text = '\n'.join(text) + '\n'
     with open(fp, mode) as f:
@@ -24,6 +26,8 @@ def write_file(fp, text, mode='w', debug=False):
             log.debug('Writing file \"{}\"'.format(fp))
         f.write(text)
         f.close()
+    if sync:
+        os.system('sync')
 
 
 def run_proc(cmd_list, debug=False, fake=False):

@@ -114,9 +114,9 @@ class EthMiner():
             self.version, self.miner_uptime = miner_data[0], miner_data[1]
             self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
             self.fix_types()
-
-        if self.watchdog_uptime >= 1 and self.miner_uptime == 0:
-            self.HASHRATE_EMPTY.append(1)
+        else:
+            if self.watchdog_uptime >= 1:
+                self.HASHRATE_EMPTY.append(1)
 
         if all([stat_isfull, self.average_hashrate < self.minimal_hashrate, self.valid > 10]):
             log.warning('Average hashrate {} lower than {}'.format(self.average_hashrate, self.minimal_hashrate))

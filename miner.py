@@ -101,7 +101,7 @@ class EthMiner():
 
         if stat_isfull:
             self.HASHRATE_STAT.pop(0)
-        if self.total_hashrate > 0:
+        if self.watchdog_uptime >= 1 and self.total_hashrate > 0:
             self.HASHRATE_STAT.append(self.total_hashrate)
 
         try:
@@ -115,14 +115,14 @@ class EthMiner():
             self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
             self.fix_types()
 
-        if self.watchdog_uptime > 2 and self.miner_uptime == 0:
+        if self.watchdog_uptime >= 1 and self.miner_uptime == 0:
             self.HASHRATE_EMPTY.append(1)
 
         if all([stat_isfull, self.average_hashrate < self.minimal_hashrate, self.valid > 10]):
             log.warning('Average hashrate {} lower than {}'.format(self.average_hashrate, self.minimal_hashrate))
             self.sys_reboot()
 
-        if all([self.watchdog_uptime > 5, len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES * 4]):
+        if all([self.watchdog_uptime >= 3, empty_isfull]):
             log.error('Miner is down!')
             self.sys_reboot()
 
@@ -136,6 +136,7 @@ class EthMiner():
                     str(self.total_hashrate), str(self.valid), str(self.rejected)
                 ]
                 log.debug('Miner version: {}, uptime: {}, current hashrate: {}, valid: {}, rejected: {}'.format(*miner_stat))
+            log.info('Watchdog uptime: {}'.format(self.watchdog_uptime))
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
     def sys_reboot(self):

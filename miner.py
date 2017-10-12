@@ -9,6 +9,7 @@ import json
 import time
 import logging as log
 import argparse
+import datetime
 import configparser
 
 from app.core import run_proc, read_api, check_port
@@ -49,7 +50,18 @@ class EthMiner():
         self.HASHRATE_EMPTY = []
         self.HASHRATE_STAT_SAMPLES = 16
 
-        self.reset_data()
+        self.watchdog_uptime = 0
+        self.watchdog_start_time = datetime.datetime.now()
+
+        self.timer1_prev = datetime.datetime.now()
+        self.timer1_now = datetime.datetime.now()
+
+        self.total_hashrate = 0
+        self.valid = 0
+        self.rejected = 0
+        self.miner_uptime = 0
+        self.average_hashrate = 0
+        self.share_rate = 0
 
     def send_json(self, action, nc_delay=1):
         out = None
@@ -72,22 +84,20 @@ class EthMiner():
             return data
         else:
             log.error('No connection with miner API {}:{}'.format(self.host, self.port))
-            self.reset_data()
             return None
 
-    def reset_data(self):
-        self.total_hashrate = 0
-        self.valid = 0
-        self.rejected = 0
-        self.miner_uptime = 0
-        self.average_hashrate = 0
-        self.share_rate = 0
-
     def watchdog(self):
+        self.timer1_now = datetime.datetime.now()
+        self.watchdog_uptime = int((datetime.datetime.now() - self.watchdog_start_time).seconds / 60)
+
         miner_data = self.send_json(action=self.ETHMINER_API_KEYS[0])
 
         stat_isfull = len(self.HASHRATE_STAT) > self.HASHRATE_STAT_SAMPLES
         empty_isfull = len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES
+
+        if (self.timer1_now - self.timer1_prev).seconds > 60:
+            self.timer1_prev = datetime.datetime.now()
+            pass
 
         if stat_isfull:
             self.HASHRATE_STAT.pop(0)
@@ -104,15 +114,16 @@ class EthMiner():
             self.version, self.miner_uptime = miner_data[0], miner_data[1]
             self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
             self.fix_types()
-        elif self.miner_uptime > 1 and not miner_data:
+
+        if self.watchdog_uptime > 2 and self.miner_uptime == 0:
             self.HASHRATE_EMPTY.append(1)
 
         if all([stat_isfull, self.average_hashrate < self.minimal_hashrate, self.valid > 10]):
             log.warning('Average hashrate {} lower than {}'.format(self.average_hashrate, self.minimal_hashrate))
             self.sys_reboot()
 
-        if len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES * 4:
-            log.warning('Miner API is down?')
+        if all([self.watchdog_uptime > 5, len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES * 4]):
+            log.error('Miner is down!')
             self.sys_reboot()
 
         if args.debug:

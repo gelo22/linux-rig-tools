@@ -251,7 +251,7 @@ elif args.gpu_type == GPU_TYPE[1]:
 
 
 def date2json(d):
-    return d.strftime('%Y-%b-%d %H:%M:%S')
+    return d.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def get_api_data(read_interval=args.getdata_interval):

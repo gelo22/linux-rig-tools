@@ -103,15 +103,14 @@ class EthMiner():
             self.version, self.miner_uptime = miner_data[0], miner_data[1]
             self.total_hashrate, self.valid, self.rejected = miner_data[2].split(';')
             self.fix_types()
-        else:
+        elif self.miner_uptime > 1 and not miner_data:
             self.HASHRATE_EMPTY.append(1)
 
         if all([stat_isfull, self.average_hashrate < self.minimal_hashrate, self.valid > 10]):
-            self.HASHRATE_STAT = []
-            reboot_delay = 30
-            log.warning('System reboot in {} seconds ...'.format(reboot_delay))
-            time.sleep(reboot_delay)
-            os.system('sudo reboot -dnf')
+            self.sys_reboot()
+
+        if len(self.HASHRATE_EMPTY) > self.HASHRATE_STAT_SAMPLES * 4:
+            self.sys_reboot()
 
         if args.debug:
             log.debug(self.HASHRATE_STAT)
@@ -124,6 +123,12 @@ class EthMiner():
                 ]
                 log.debug('Miner version: {}, uptime: {}, current hashrate: {}, valid: {}, rejected: {}'.format(*miner_stat))
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
+
+    def sys_reboot(self):
+        reboot_delay = 30
+        log.warning('System reboot in {} seconds ...'.format(reboot_delay))
+        time.sleep(reboot_delay)
+        os.system('sudo reboot -dnf')
 
     def fix_types(self):
         self.miner_uptime = int(self.miner_uptime)

@@ -44,7 +44,7 @@ def parse_dmesg():
     regex = r'.*NVRM\:\sXid\s\(PCI\:(?P<bus_id>\w+\:\w{2}\:\w{2})\)\:'
 
     dmesg_out = run_proc('dmesg')
-    log_fp = os.path.join(ROOT_DIR, 'miner.log')
+    log_fp = os.path.join(ROOT_DIR, 'error.log')
     ts = datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S')
     d = defaultdict(list)
     log_list = []

@@ -12,8 +12,11 @@ import argparse
 import datetime
 import configparser
 
-from app.core import run_proc, read_api, check_port
+from app.core import run_proc, read_api, check_port, write_file
 from app.settings import API_URL
+
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 parser = argparse.ArgumentParser(description='Miner run tool')
@@ -33,6 +36,22 @@ else:
     LOG_LEVEL = log.INFO
 
 log.basicConfig(format='[%(levelname)s] %(message)s', level=LOG_LEVEL)
+
+
+def parse_dmesg():
+    import re
+
+    regex = r'.*NVRM\:\sXid\s\(PCI\:(?P<bus_id>\w+\:\w{2}\:\w{2})\)\:'
+
+    dmesg_out = run_proc('dmesg')
+    log_fp = os.path.join(ROOT_DIR, 'miner.log')
+
+    for line in dmesg_out.decode('utf-8').split('\n'):
+        m = re.match(regex, line)
+        if m:
+            log_record = '[{}] GPU fail on bus_id: \"{}\"; Raw log: {}'.format(datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S'), m.group('bus_id'), line)
+            log.debug(log_record)
+            write_file(log_fp, log_record, mode='a', debug=True)
 
 
 class EthMiner():
@@ -140,6 +159,8 @@ class EthMiner():
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
     def sys_reboot(self, delay=args.sys_reboot_delay):
+        parse_dmesg()
+
         log.warning('System reboot in {} seconds ...'.format(delay))
         time.sleep(delay)
         os.system('sudo reboot -dnf')
@@ -148,9 +169,6 @@ class EthMiner():
         self.miner_uptime = int(self.miner_uptime)
         self.valid, self.rejected = int(self.valid), int(self.rejected)
         self.total_hashrate = round(int(self.total_hashrate) / 1000, 2)
-
-    def parse_dmesg(self):
-        pass
 
 
 eth_miner = EthMiner(

@@ -16,6 +16,16 @@ def check_python():
         sys.exit(1)
 
 
+def write_file(fp, text, mode='w', debug=False):
+    if type(text) == list:
+        text = '\n'.join(text) + '\n'
+    with open(fp, mode) as f:
+        if debug:
+            log.debug('Writing file \"{}\"'.format(fp))
+        f.write(text)
+        f.close()
+
+
 def run_proc(cmd_list, debug=False, fake=False):
     import subprocess
 

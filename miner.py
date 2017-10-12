@@ -124,7 +124,7 @@ class EthMiner():
 
         if all([self.watchdog_uptime >= 3, empty_isfull]):
             log.error('Miner is down!')
-            self.sys_reboot()
+            self.sys_reboot(30)
 
         if args.debug:
             log.debug(self.HASHRATE_STAT)
@@ -139,9 +139,9 @@ class EthMiner():
             log.info('Watchdog uptime: {}'.format(self.watchdog_uptime))
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
-    def sys_reboot(self):
-        log.warning('System reboot in {} seconds ...'.format(args.sys_reboot_delay))
-        time.sleep(args.sys_reboot_delay)
+    def sys_reboot(self, delay=args.sys_reboot_delay):
+        log.warning('System reboot in {} seconds ...'.format(delay))
+        time.sleep(delay)
         os.system('sudo reboot -dnf')
 
     def fix_types(self):

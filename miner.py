@@ -2,7 +2,7 @@ from app.core import check_python
 
 check_python()
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import os
 import sys
 import json
@@ -45,13 +45,27 @@ def parse_dmesg():
 
     dmesg_out = run_proc('dmesg')
     log_fp = os.path.join(ROOT_DIR, 'miner.log')
+    ts = datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S')
+    d = defaultdict(list)
+    log_list = []
 
     for line in dmesg_out.decode('utf-8').split('\n'):
         m = re.match(regex, line)
         if m:
-            log_record = '[{}] GPU fail on bus_id: \"{}\"; Raw log: {}'.format(datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S'), m.group('bus_id'), line)
-            log.debug(log_record)
-            write_file(log_fp, log_record, mode='a', debug=True)
+            key = m.group('bus_id')
+            d[key].append(line)
+
+    for k in d.keys():
+        err_msg = '[{}] GPU error on bus_id \"{}\"'.format(ts, k)
+        log.error(err_msg)
+        log_list.append(err_msg)
+        log_list.append('Raw log:')
+        for l in d[k]:
+            log_list.append('  {}'.format(l))
+        log_list.append('\n')
+    log_list.append('=' * 16)
+
+    write_file(log_fp, log_list, mode='a', debug=True)
 
 
 class EthMiner():

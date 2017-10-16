@@ -189,11 +189,13 @@ def apply_settings(lst):
 
         nv_attr = [
             '{env} sudo {nv_set}',
-            '-a \"[gpu:{index}]/GPUFanControlState=1\"',                   # gain manual fan control
-            '-a \"[fan:{index}]/GPUTargetFanSpeed={fan}\"',                # set fan speed
-            '-a \"[gpu:{index}]/GPUPowerMizerMode=1\"',                    # enable PowerMizer (Prefer Maximum Performance)
-            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[2]={core}\"',       # set core clock
-            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[2]={mem}\"',   # set memory clock
+            '-a \"[gpu:{index}]/GPUFanControlState=1\"',                               # gain manual fan control
+            '-a \"[fan:{index}]/GPUTargetFanSpeed={fan}\"',                            # set fan speed
+            '-a \"[gpu:{index}]/GPUPowerMizerMode=1\"',                                # enable PowerMizer (Prefer Maximum Performance)
+            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[2]={core}\"',                   # set core clock (2 - mining edition)
+            '-a \"[gpu:{index}]/GPUGraphicsClockOffset[3]={core}\"',                   # set core clock (3 - desktop edition)
+            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[2]={mem}\"',               # set memory clock
+            '-a \"[gpu:{index}]/GPUMemoryTransferRateOffset[3]={mem}\"',               # set memory clock
             '-c :0',
         ]
 

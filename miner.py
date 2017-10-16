@@ -42,18 +42,21 @@ def parse_dmesg():
     import re
 
     regex = r'.*NVRM\:\sXid\s\(PCI\:(?P<bus_id>\w+\:\w{2}\:\w{2})\)\:'
-
     dmesg_out = run_proc('dmesg')
-    log_fp = os.path.join(ROOT_DIR, 'error.log')
-    ts = datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S')
     d = defaultdict(list)
-    log_list = []
 
     for line in dmesg_out.decode('utf-8').split('\n'):
         m = re.match(regex, line)
         if m:
             key = m.group('bus_id')
             d[key].append(line)
+    return d
+
+
+def write_log(d):
+    ts = datetime.datetime.now().strftime('%d-%b-%Y %H:%M:%S')
+    log_fp = os.path.join(ROOT_DIR, 'error.log')
+    log_list = []
 
     for k in d.keys():
         err_msg = '[{}] GPU error on bus_id \"{}\"'.format(ts, k)
@@ -173,7 +176,7 @@ class EthMiner():
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
     def sys_reboot(self, delay=args.sys_reboot_delay):
-        parse_dmesg()
+        write_log(parse_dmesg())
 
         log.warning('System reboot in {} seconds ...'.format(delay))
         time.sleep(delay)

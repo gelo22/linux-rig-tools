@@ -105,7 +105,7 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
 
 
 def gen_conf(fp=args.config):
-    config = configparser.ConfigParser(dict_type=OrderedDict)
+    config = configparser.ConfigParser()
     config.read(fp)
 
     d = read_api()
@@ -118,16 +118,13 @@ def gen_conf(fp=args.config):
     for i in api_data:
         key = i.get('bus_id')
 
-        card_conf = dict(
-            pl=args.pl,
-            core=args.core,
-            mem=args.mem,
-            fan=args.fan,
-            uuid=i.get('uuid'),
-            index=i.get('index'),
-        )
-
-        config[key] = card_conf
+        config[key] = {}
+        config[key]['index'] = str(i.get('index'))
+        config[key]['uuid'] = str(i.get('uuid'))
+        config[key]['pl'] = str(args.pl)
+        config[key]['core'] = str(args.core)
+        config[key]['mem'] = str(args.mem)
+        config[key]['fan'] = str(args.fan)
 
     with open(fp, 'w') as configfile:
         log.info('Writing config file \"{}\" ...'.format(fp))

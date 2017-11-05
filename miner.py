@@ -18,12 +18,20 @@ from app.settings import API_URL
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+MINER = dict(
+    ethminer=dict(class_name='EthMiner', port=3333, url='/'),
+    ewbf=dict(class_name='EwbfMiner', port=42000, url='getstat'),
+)
+MINER_CHOICES = list(MINER.keys())
+MINER_DEFAULT = MINER_CHOICES[0]
+
 
 parser = argparse.ArgumentParser(description='Miner run tool')
 parser.add_argument('--minimal-hashrate', type=int, required=True, help='Miner minimal hashrate')
 parser.add_argument('--hashrate-delta-reboot', type=int, default=15)
+parser.add_argument('--miner-name', type=str, choices=MINER_CHOICES, default=MINER_DEFAULT, help='Miner name')
 parser.add_argument('--miner-api-host', type=str, default='localhost', help='Miner API host')
-parser.add_argument('--miner-api-port', type=int, default=3333, help='Miner API port')
+parser.add_argument('--miner-api-port', type=int, required=False, help='Miner API port')
 parser.add_argument('--sys-reboot-delay', type=int, default=60)
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
 
@@ -66,12 +74,48 @@ def write_log(d):
         for l in d[k]:
             log_list.append('  {}'.format(l))
         log_list.append('\n')
-    log_list.append('=' * 16)
 
-    write_file(log_fp, log_list, mode='a', debug=True, sync=True)
+    if log_list:
+        log_list.append('=' * 16)
+        write_file(log_fp, log_list, mode='a', debug=True, sync=True)
+    else:
+        log.warning('Nothing to log')
 
 
-class EthMiner():
+def get_json_data(*args, **kw):
+    from socket import timeout
+    import urllib.request
+    from urllib.error import HTTPError, URLError
+    from urllib.parse import urlparse, urljoin
+
+    o = urlparse('http://{host}:{port}/{url}'.format(**kw))
+    host, port = o.scheme, o.port
+    url = o.geturl()
+    resp = None
+
+    try:
+        resp = urllib.request.urlopen(url, timeout=2).read().decode('utf-8')
+    except (HTTPError, URLError) as error:
+        log.error('Data is not retrieved. Error: {}\nURL: {}\n'.format(error, url))
+    except timeout:
+        log.error('Time out. URL: {}\n'.format(url))
+    return resp
+
+
+class BaseMiner():
+    def sys_reboot(self, delay=args.sys_reboot_delay, fake=False):
+        cmd = 'sudo reboot -dnf'
+        write_log(parse_dmesg())
+
+        log.warning('System reboot in {} seconds ...'.format(delay))
+        time.sleep(delay)
+        if not fake:
+            os.system(cmd)
+        else:
+            log.debug(cmd)
+
+
+class EthMiner(BaseMiner):
     def __init__(self, minimal_hashrate, host, port):
         self.host = host
         self.port = port
@@ -175,25 +219,79 @@ class EthMiner():
             log.info('Watchdog uptime: {}'.format(self.watchdog_uptime))
             log.info('Average hashrate: {}; Minimal reboot hashrate: {}; Share rate: {}/min\n'.format(self.average_hashrate, self.minimal_hashrate, self.share_rate))
 
-    def sys_reboot(self, delay=args.sys_reboot_delay):
-        write_log(parse_dmesg())
-
-        log.warning('System reboot in {} seconds ...'.format(delay))
-        time.sleep(delay)
-        os.system('sudo reboot -dnf')
-
     def fix_types(self):
         self.miner_uptime = int(self.miner_uptime)
         self.valid, self.rejected = int(self.valid), int(self.rejected)
         self.total_hashrate = round(int(self.total_hashrate) / 1000, 2)
 
 
-eth_miner = EthMiner(
+class EwbfMiner(BaseMiner):
+    def __init__(self, minimal_hashrate, host, port, url=''):
+        self.host = host
+        self.port = port
+        self.url = url
+        self.minimal_hashrate = minimal_hashrate
+
+        self.miner_data = {}
+        self.miner_data_ts = datetime.datetime.now()
+
+        self.cur_hashrate = 0
+        self.total_power = 0
+        self.miner_start_time = datetime.datetime.now()
+
+    def get_data(self):
+        self.miner_data_ts_delta = datetime.datetime.now() - self.miner_data_ts
+        data = get_json_data(host=self.host, port=self.port, url=self.url)
+
+        if data:
+            data = json.loads(data)
+            result = data.get('result')
+
+            self.cur_hashrate = sum([x.get('speed_sps') for x in result])
+            self.total_power = sum([x.get('gpu_power_usage') for x in result])
+            self.total_accepted = sum([x.get('accepted_shares') for x in result])
+            self.total_rejected = sum([x.get('rejected_shares') for x in result])
+            self.miner_start_time = datetime.datetime.fromtimestamp(data.get('start_time'))
+            self.miner_data_ts = datetime.datetime.now()
+            self.miner_data = {x.get('busid'):
+                dict(
+                    hashrate=x.get('speed_sps'), busid=x.get('busid'), name=x.get('name'),
+                    accepted=x.get('accepted_shares'), rejected=x.get('rejected_shares'),
+                ) for x in result}
+            log.info('Miner API is alive')
+            log.info(self.miner_data)
+            log.info('Total hashrate: {} Sol/sec; Total power: {} W'.format(self.cur_hashrate, self.total_power))
+            log.info('Accepted: {}; Rejected {}\n'.format(self.total_accepted, self.total_rejected))
+        else:
+            data = None
+            self.miner_data = {}
+            log.error('Miner API is down?')
+        return data
+
+    def watchdog(self):
+        self.get_data()
+
+        print(self.miner_data_ts_delta.seconds, self.cur_hashrate)
+        if self.miner_data_ts_delta.seconds >= (3 * 60):
+            self.sys_reboot(30)
+
+
+miner_d = MINER.get(args.miner_name)
+miner_class_name = miner_d.get('class_name')
+if not args.miner_api_port:
+    miner_port = miner_d.get('port')
+else:
+    miner_port = args.miner_api_port
+miner_class = eval(miner_class_name)
+miner_url = miner_d.get('url')
+
+
+miner = miner_class(
     minimal_hashrate=args.minimal_hashrate,
-    host=args.miner_api_host, port=args.miner_api_port
+    host=args.miner_api_host, port=miner_port, url=miner_url,
 )
 
 
 while True:
-    eth_miner.watchdog()
+    miner.watchdog()
     time.sleep(1)

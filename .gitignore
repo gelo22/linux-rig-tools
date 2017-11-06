@@ -105,3 +105,6 @@ ENV/
 
 # config files
 *.ini
+
+# ide
+.idea

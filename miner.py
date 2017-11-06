@@ -232,8 +232,13 @@ class EwbfMiner(BaseMiner):
         self.url = url
         self.minimal_hashrate = minimal_hashrate
 
+        self.watchdog_uptime = 0
+        self.watchdog_start_time = datetime.datetime.now()
+
         self.miner_data = {}
         self.miner_data_ts = datetime.datetime.now()
+        self.HASHRATE_EMPTY = []
+        self.HASHRATE_STAT_SAMPLES = 16
 
         self.cur_hashrate = 0
         self.total_power = 0
@@ -260,6 +265,7 @@ class EwbfMiner(BaseMiner):
                 ) for x in result}
             log.info('Miner API is alive')
             log.info(self.miner_data)
+            log.debug(data)
             log.info('Total hashrate: {} Sol/sec; Total power: {} W'.format(self.cur_hashrate, self.total_power))
             log.info('Accepted: {}; Rejected {}\n'.format(self.total_accepted, self.total_rejected))
         else:
@@ -269,11 +275,21 @@ class EwbfMiner(BaseMiner):
         return data
 
     def watchdog(self):
+        self.watchdog_uptime = int((datetime.datetime.now() - self.watchdog_start_time).seconds)
         self.get_data()
 
-        print(self.miner_data_ts_delta.seconds, self.cur_hashrate)
-        if self.miner_data_ts_delta.seconds >= (3 * 60):
-            self.sys_reboot(30)
+        log.info('Miner get_data ts (delta seconds): {}'.format(self.miner_data_ts_delta.seconds))
+
+        if self.watchdog_uptime >= 3 * 60:
+            if self.cur_hashrate < self.minimal_hashrate:
+                log.warning('Current hashrate {} < {} (minimal hashrate)'.format(self.cur_hashrate, self.minimal_hashrate))
+                self.HASHRATE_EMPTY.append(1)
+                log.warning(self.HASHRATE_EMPTY)
+            else:
+                self.HASHRATE_EMPTY = []
+
+            if any([self.miner_data_ts_delta.seconds >= (3 * 60), len(self.HASHRATE_EMPTY) >= self.HASHRATE_STAT_SAMPLES]):
+                self.sys_reboot(30)
 
 
 miner_d = MINER.get(args.miner_name)

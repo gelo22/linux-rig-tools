@@ -116,7 +116,7 @@ class BaseMiner():
 
 
 class EthMiner(BaseMiner):
-    def __init__(self, minimal_hashrate, host, port):
+    def __init__(self, minimal_hashrate, host, port, url=''):
         self.host = host
         self.port = port
         self.minimal_hashrate = minimal_hashrate

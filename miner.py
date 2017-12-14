@@ -19,15 +19,17 @@ from app.settings import API_URL
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MINER = dict(
+    generic=dict(class_name='GenericMiner', minimal_gpu_load=50),
     ethminer=dict(class_name='EthMiner', port=3333, url='/'),
     ewbf=dict(class_name='EwbfMiner', port=42000, url='getstat'),
 )
 MINER_CHOICES = list(MINER.keys())
-MINER_DEFAULT = MINER_CHOICES[0]
+MINER_DEFAULT = 'generic'
 
 
 parser = argparse.ArgumentParser(description='Miner run tool')
-parser.add_argument('--minimal-hashrate', type=int, required=True, help='Miner minimal hashrate')
+parser.add_argument('--minimal-gpu-load', type=int, required=False, help='Minimal GPU load')
+parser.add_argument('--minimal-hashrate', type=int, required=False, help='Miner minimal hashrate')
 parser.add_argument('--hashrate-delta-reboot', type=int, default=15)
 parser.add_argument('--miner-name', type=str, choices=MINER_CHOICES, default=MINER_DEFAULT, help='Miner name')
 parser.add_argument('--miner-api-host', type=str, default='localhost', help='Miner API host')
@@ -292,20 +294,73 @@ class EwbfMiner(BaseMiner):
                 self.sys_reboot(30)
 
 
+class GenericMiner(BaseMiner):
+    def __init__(self, minimal_gpu_load):
+        self.min_load = minimal_gpu_load
+        self.smi_key_list = ('utilization.gpu', 'temperature.gpu', 'power.draw')
+        self.data = []
+        self.proc = self.run_smi()
+
+    def run_smi(self):
+        import subprocess
+
+        key_list = ','.join(self.smi_key_list)
+        proc = subprocess.Popen(
+            ['nvidia-smi', '--query-gpu={}'.format(key_list), '--format=csv,noheader,nounits'],
+            stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        return proc
+
+    def update_data(self):
+        self.proc.poll()
+        if self.proc.poll() == 0 and self.proc.returncode == 0:
+            try:
+                raw_data = (
+                    dict(zip(self.smi_key_list, x.split(', '))) for x in self.proc.stdout.read().decode('utf-8').split('\n') if x
+                )
+                data = tuple(raw_data)
+                self.data = data
+            except Exception as e:
+                log.error('Error in update_data')
+                log.error(e)
+
+    def print_load(self):
+        k = self.smi_key_list[0]
+        l = ['GPU #{0:02d} {2}: {1:3}%'.format(idx, i.get(k), k) for idx, i in enumerate(self.data)]
+        log.info('; '.join(l))
+
+    def watchdog(self):
+        if not self.data:
+            self.update_data()
+        else:
+            self.print_load()
+            self.data = []
+            self.proc = self.run_smi()
+
+
+
 miner_d = MINER.get(args.miner_name)
 miner_class_name = miner_d.get('class_name')
-if not args.miner_api_port:
-    miner_port = miner_d.get('port')
-else:
-    miner_port = args.miner_api_port
 miner_class = eval(miner_class_name)
-miner_url = miner_d.get('url')
 
+if args.miner_name == 'generic':
+    miner = miner_class(
+        minimal_gpu_load=args.minimal_gpu_load,
+    )
+else:
+    if not args.miner_api_port:
+        miner_port = miner_d.get('port')
+    else:
+        miner_port = args.miner_api_port
+    miner_url = miner_d.get('url')
 
-miner = miner_class(
-    minimal_hashrate=args.minimal_hashrate,
-    host=args.miner_api_host, port=miner_port, url=miner_url,
-)
+    if not args.minimal_hashrate:
+        log.error('--minimal-hashrate is required')
+        sys.exit(1)
+    miner = miner_class(
+        minimal_hashrate=args.minimal_hashrate,
+        host=args.miner_api_host, port=miner_port, url=miner_url,
+    )
 
 
 while True:

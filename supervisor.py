@@ -19,7 +19,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config', help='config file location')
 parser.add_argument('--supervisor_pid_file', default='/tmp/supervisor.pid', help='Pid file for supervisor daemon')
 parser.add_argument('--miner_name', default='ccminer', help='miner name which will be installed')
-#parser.add_argument('--miner_options', default='-a lbry -o stratum+tcp://lbry.suprnova.cc:6256 -u one_miner.new -p x111 -i 25 --max-temp=75', help='Options for miner')
 parser.add_argument('--watchdog_options', default='--minimal-hashrate 280 --debug --miner-api-port 3333', help='Options for watchdog')
 parser.add_argument('--api_options', default='--api --gpu-type nvidia --getdata-interval 10', help='Options for api')
 parser.add_argument('--oc_options', default='-c oc.ini -D', help='Options for oc')
@@ -89,14 +88,11 @@ def run_proc(proc_name):
                 command += ' {0}{1}'.format(miner_options[conf['miner']['name']][opt], conf['miner'][opt])
             else:
                 command += ' {0} {1}'.format(miner_options[conf['miner']['name']][opt], conf['miner'][opt])
-       #command = '{} {}'.format(proc_paths[proc_name], conf[proc_name]['options'])
     else:
         command = 'python3 {} {}'.format(proc_paths[proc_name], conf[proc_name]['options'])
 
     command = shlex.split(command)
-   #command = command.split()
-    print(command)
-    return
+
     proc_stdout=open('/tmp/{}.stdout'.format(proc_name), 'w')
     proc_stderr=open('/tmp/{}.stderr'.format(proc_name), 'w')
     proc = Popen(command, stdout=proc_stdout, stderr=proc_stderr)

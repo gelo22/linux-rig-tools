@@ -28,7 +28,7 @@ MINER_DEFAULT = 'generic'
 
 
 parser = argparse.ArgumentParser(description='Miner run tool')
-parser.add_argument('--minimal-gpu-load', type=int, required=False, help='Minimal GPU load')
+parser.add_argument('--minimal-gpu-load', type=int, required=False, default=75, help='Minimal GPU load')
 parser.add_argument('--minimal-hashrate', type=int, required=False, help='Miner minimal hashrate')
 parser.add_argument('--hashrate-delta-reboot', type=int, default=15)
 parser.add_argument('--miner-name', type=str, choices=MINER_CHOICES, default=MINER_DEFAULT, help='Miner name')
@@ -297,9 +297,19 @@ class EwbfMiner(BaseMiner):
 class GenericMiner(BaseMiner):
     def __init__(self, minimal_gpu_load):
         self.min_load = minimal_gpu_load
+
+        self.sys_reboot_delay = 3 * 60 # in seconds
+        self.watchdog_uptime = 0
+        self.watchdog_start_time = datetime.datetime.now()
+
         self.smi_key_list = ('utilization.gpu', 'temperature.gpu', 'power.draw')
         self.data = []
+        self.data_ts = datetime.datetime.now()
+        self.data_ts_delta = datetime.datetime.now()
         self.proc = self.run_smi()
+
+        self.MIN_LOAD = []
+        self.MIN_LOAD_SAMPLES = 64
 
     def run_smi(self):
         import subprocess
@@ -320,23 +330,62 @@ class GenericMiner(BaseMiner):
                 )
                 data = tuple(raw_data)
                 self.data = data
+                self.data_ts = datetime.datetime.now()
             except Exception as e:
                 log.error('Error in update_data')
                 log.error(e)
 
     def print_load(self):
         k = self.smi_key_list[0]
-        l = ['GPU #{0:02d} {2}: {1:3}%'.format(idx, i.get(k), k) for idx, i in enumerate(self.data)]
-        log.info('; '.join(l))
+        l = ['GPU{0:02d}: {1}'.format(idx, x.get(k)) for idx, x in enumerate(self.data)]
+        log.info('GPU load (%); {}'.format('; '.join(l)))
 
-    def watchdog(self):
+    def get_or_update_data(self):
+        self.data_ts_delta = datetime.datetime.now() - self.data_ts
         if not self.data:
             self.update_data()
         else:
             self.print_load()
             self.data = []
             self.proc = self.run_smi()
+        # log.debug('Last data ts (delta seconds): {}'.format(self.data_ts_delta.seconds))
 
+    def draw_min_load(self):
+        bar_cur_len = len(self.MIN_LOAD)
+        bar_max_len = self.MIN_LOAD_SAMPLES - bar_cur_len
+        if bar_cur_len <= self.MIN_LOAD_SAMPLES:
+            progress_bar = '[{}{}]'.format(
+                ''.join(['|' for x in range(bar_cur_len)]),
+                ''.join(['.' for x in range(bar_max_len)]),
+            )
+            log.warning(progress_bar)
+
+    def check_load(self):
+        if not self.data:
+            return None
+
+        k = self.smi_key_list[0]
+        for idx, x in enumerate(self.data):
+            cur_load = int(x.get(k, 0))
+
+            gpu_name = 'GPU{idx:02d}'.format(idx=idx)
+            if cur_load < self.min_load:
+                log.warning('Current {gpu_name} load (%) {load} < {min_load} (minimal load)'.format(gpu_name=gpu_name, load=cur_load, min_load=self.min_load))
+                self.MIN_LOAD.append(dict(name=gpu_name, load=cur_load))
+
+    def watchdog(self):
+        self.watchdog_uptime = int((datetime.datetime.now() - self.watchdog_start_time).seconds)
+        self.get_or_update_data()
+
+        if self.watchdog_uptime >= self.sys_reboot_delay:
+            self.check_load()
+            self.draw_min_load()
+
+            if any([self.data_ts_delta.seconds >= self.sys_reboot_delay, len(self.MIN_LOAD) >= self.MIN_LOAD_SAMPLES]):
+                log.info('Current gpu load lower than {}%'.format(self.min_load))
+                self.sys_reboot(30)
+        else:
+            log.info('Watchdog uptime is too low. All checks will be activated in {} seconds'.format(self.sys_reboot_delay - self.watchdog_uptime))
 
 
 miner_d = MINER.get(args.miner_name)

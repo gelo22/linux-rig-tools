@@ -26,14 +26,16 @@ args = parser.parse_args()
 
 miner_options = {'ccminer': {'options': {'pool': '',
                                          'user': '',
-                                         'password': ''
+                                         'password': '',
+                                          'extra_options': ''
                                         },
                              'template': '-o {pool} -u {user} -p {password} {extra_options}'
                             },
                  'ethminer': {'options': {'pool': '',
                                           'user': '',
                                           'password': '',
-                                          'worker_name': ''
+                                          'worker_name': '',
+                                          'extra_options': ''
                                          },
                              'template': '-S {pool} -O {user}.{worker_name}:{password} {extra_options}'
                              }
@@ -74,7 +76,7 @@ def _gen_conf(config_file_name, miner_name):
         conf['miner'][key] = 'change_me'
     with open(config_file_name, 'w') as config_file:
         conf.write(config_file)
-    print('Default config generated, you able to customize it via command:\neditor config.ini')
+    print('Default config generated, you able to customize it via command:\neditor {0}'.format(config_file_name))
     sys.exit(0)
 
 def write_pid():

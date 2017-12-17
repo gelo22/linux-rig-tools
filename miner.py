@@ -309,7 +309,7 @@ class GenericMiner(BaseMiner):
         self.proc = self.run_smi()
 
         self.MIN_LOAD = []
-        self.MIN_LOAD_SAMPLES = 64
+        self.MIN_LOAD_SAMPLES = 16
 
     def run_smi(self):
         import subprocess
@@ -381,7 +381,10 @@ class GenericMiner(BaseMiner):
             self.check_load()
             self.draw_min_load()
 
-            if any([self.data_ts_delta.seconds >= self.sys_reboot_delay, len(self.MIN_LOAD) >= self.MIN_LOAD_SAMPLES]):
+            if not self.data:
+                log.warning('Data is empty')
+                self.sys_reboot()
+            elif any([self.data_ts_delta.seconds >= self.sys_reboot_delay, len(self.MIN_LOAD) >= self.MIN_LOAD_SAMPLES * len(self.data)]):
                 log.info('Current gpu load lower than {}%'.format(self.min_load))
                 self.sys_reboot(30)
         else:

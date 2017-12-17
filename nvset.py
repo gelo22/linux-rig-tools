@@ -40,6 +40,7 @@ parser.add_argument('--max-temp', type=int, default=70)
 
 parser.add_argument('-i', '--config-check-interval', type=int, default=5, help='Config file check interval')
 parser.add_argument('-D', '--daemon', action='store_true', default=False, help='Daemon mode')
+parser.add_argument('--fake', action='store_true', default=False, help='Fake mode')
 parser.add_argument('--debug', action='store_true', default=False, help='Debug mode')
 args = parser.parse_args()
 
@@ -88,6 +89,9 @@ def read_api(url=args.api_url, debug=args.debug, api_timeout=args.api_timeout):
     from urllib.error import HTTPError, URLError
     from urllib.parse import urlparse
     from socket import timeout
+
+    if args.fake:
+        return get_fake_api()
 
     log.info('Reading API ...')
 
@@ -239,6 +243,21 @@ def parse_or_genconf():
     else:
         conf = parse_conf()
         apply_settings(conf)
+
+
+def get_fake_api():
+    import uuid
+    import random
+
+    cards_l = [
+        dict(
+            index=idx, uuid=str(uuid.uuid4()),
+            bus_id='00000000:{0:02d}:00.0'.format(idx + 1),
+        ) for idx, i in enumerate(range(12))
+    ]
+    d = [dict(cards=cards_l), ]
+    pprint(d)
+    return d
 
 
 if args.daemon:

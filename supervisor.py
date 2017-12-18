@@ -67,20 +67,17 @@ def parse_configuration(args):
 def _gen_conf(config_file_name, miner_name):
     '''Generate config'''
     conf = configparser.ConfigParser()
-    miner_key = 'MINER'
     for key in vars(args):
         if key == 'config':
             continue
         key_tmp = key.split('_')
         section = key_tmp[0]
-        if section == miner_key.lower():
-            section = miner_key
         section_key = '_'.join(key_tmp[1:])
         if section not in conf:
             conf[section] = dict()
         conf[section][section_key] = vars(args)[key]
     for key in miner_options[miner_name]['options']:
-        conf[miner_key][key] = 'change_me'
+        conf['miner'][key] = 'change_me'
     with open(config_file_name, 'w') as config_file:
         conf.write(config_file)
     print('Default config generated, you able to customize it via command:\neditor {0}'.format(config_file_name))

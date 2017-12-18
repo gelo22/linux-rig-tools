@@ -16,18 +16,18 @@ import shlex
 
 # parse args
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', help='config file location')
-parser.add_argument('--supervisor_pid_file', default='/tmp/supervisor.pid', help='Pid file for supervisor daemon')
-parser.add_argument('--miner_name', default='ccminer', help='miner name which will be installed')
-parser.add_argument('--watchdog_options', default='', help='Options for watchdog')
-parser.add_argument('--api_options', default='--api --gpu-type nvidia --getdata-interval 10', help='Options for api')
-parser.add_argument('--oc_options', default='-c oc.ini -D', help='Options for oc')
+parser.add_argument('-c', '--config', required=True, help='config file location')
+parser.add_argument('--supervisor-pid-file', default='/tmp/supervisor.pid', help='Pid file for supervisor daemon')
+parser.add_argument('--miner-name', default='ccminer', help='miner name which will be installed')
+parser.add_argument('--watchdog-options', default='', help='Options for watchdog')
+parser.add_argument('--api-options', default='--api --gpu-type nvidia --getdata-interval 10', help='Options for api')
+parser.add_argument('--oc-options', default='-c oc.ini -D', help='Options for oc')
 args = parser.parse_args()
 
 miner_options = {'ccminer': {'options': {'pool': '',
                                          'user': '',
                                          'password': '',
-                                          'extra_options': ''
+                                         'extra_options': ''
                                         },
                              'template': '-o {pool} -u {user} -p {password} {extra_options}'
                             },
@@ -40,6 +40,7 @@ miner_options = {'ccminer': {'options': {'pool': '',
                              'template': '-S {pool} -O {user}.{worker_name}:{password} {extra_options}'
                              }
                 }
+
 
 def parse_configuration(args):
     '''Parse configuration from config and cmd'''
@@ -60,6 +61,7 @@ def parse_configuration(args):
             sys.exit(0)
     return conf
 
+
 def _gen_conf(config_file_name, miner_name):
     '''Generate config'''
     conf = configparser.ConfigParser()
@@ -79,10 +81,12 @@ def _gen_conf(config_file_name, miner_name):
     print('Default config generated, you able to customize it via command:\neditor {0}'.format(config_file_name))
     sys.exit(0)
 
+
 def write_pid():
     '''Write main process PID to file'''
     with open(conf['supervisor']['pid_file'], 'w') as pid:
         pid.write(str(os.getpid()))
+
 
 def run_proc(proc_name):
     '''Run proc'''
@@ -110,6 +114,7 @@ def run_proc(proc_name):
     print('Process \"{0}\" started'.format(proc_name))
     return proc
 
+
 if __name__ == '__main__':
     conf = parse_configuration(args)
     write_pid()
@@ -118,4 +123,3 @@ if __name__ == '__main__':
         run_proc(service_name)
     while True:
         time.sleep(1)
-

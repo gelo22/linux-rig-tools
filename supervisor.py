@@ -9,15 +9,17 @@ import argparse
 import configparser
 import shlex
 
+
 # Example start:
 # python3 supervisor.py --config=config.ini
 # or:
 # ./supervisor.py --config=config.ini
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # parse args
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config', required=True, help='config file location')
-parser.add_argument('--supervisor-pid-file', default='/tmp/supervisor.pid', help='Pid file for supervisor daemon')
 parser.add_argument('--miner-name', default='ccminer', help='miner name which will be installed')
 parser.add_argument('--watchdog-options', default='', help='Options for watchdog')
 parser.add_argument('--api-options', default='--api --gpu-type nvidia --getdata-interval 10', help='Options for api')
@@ -84,7 +86,8 @@ def _gen_conf(config_file_name, miner_name):
 
 def write_pid():
     '''Write main process PID to file'''
-    with open(conf['supervisor']['pid_file'], 'w') as pid:
+    fn = os.path.join(ROOT_DIR, os.path.splitext(sys.argv[0])[0] + '.pid')
+    with open(fn, 'w') as pid:
         pid.write(str(os.getpid()))
 
 

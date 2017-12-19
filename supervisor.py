@@ -7,7 +7,6 @@ from subprocess import Popen, PIPE
 import traceback
 import argparse
 import configparser
-import shlex
 
 
 # Example start:
@@ -26,19 +25,19 @@ parser.add_argument('--api-options', default='--api --gpu-type nvidia --getdata-
 parser.add_argument('--oc-options', default='-c oc.ini -D', help='Options for oc')
 args = parser.parse_args()
 
-miner_options = {'ccminer': {'options': {'pool': '',
-                                         'user': '',
-                                         'password': '',
-                                         'extra_options': ''
-                                        },
+miner_options = {'ccminer': {'options':  ['pool',
+                                          'user',
+                                          'password',
+                                          'extra_options'
+                                         ],
                              'template': '-o {pool} -u {user} -p {password} {extra_options}'
                             },
-                 'ethminer': {'options': {'pool': '',
-                                          'user': '',
-                                          'password': '',
-                                          'worker_name': '',
-                                          'extra_options': ''
-                                         },
+                 'ethminer': {'options': ['pool',
+                                          'user',
+                                          'password',
+                                          'worker_name',
+                                          'extra_options'
+                                         ],
                              'template': '-S {pool} -O {user}.{worker_name}:{password} {extra_options}'
                              }
                 }
@@ -67,6 +66,11 @@ def parse_configuration(args):
 def _gen_conf(config_file_name, miner_name):
     '''Generate config'''
     conf = configparser.ConfigParser()
+    # add default section to config
+    conf['default'] = dict()
+    for option in ['watchdog', 'oc', 'api']:
+        conf['default'][option] = '1'
+    # add options from args to config
     for key in ['miner_name', 'api_options', 'oc_options', 'watchdog_options']:
         key_tmp = key.split('_')
         section = key_tmp[0]
@@ -74,6 +78,7 @@ def _gen_conf(config_file_name, miner_name):
         if section not in conf:
             conf[section] = dict()
         conf[section][section_key] = vars(args)[key]
+    # add miner options with default value
     for key in miner_options[miner_name]['options']:
         conf['miner'][key] = 'change_me'
     with open(config_file_name, 'w') as config_file:
@@ -106,7 +111,6 @@ def run_proc(proc_name):
     else:
         command = 'python3 {} {}'.format(proc_paths[proc_name], conf[proc_name]['options'])
 
-   #command = shlex.split(command)
     command = command.split()
 
     proc_stdout=open('/tmp/{}.stdout'.format(proc_name), 'w')
@@ -121,6 +125,10 @@ if __name__ == '__main__':
     write_pid()
     # run services
     for service_name in ['api', 'oc', 'miner', 'watchdog']:
-        run_proc(service_name)
+        if service_name == 'miner':
+            run_proc(service_name)
+        else:
+            if conf['default'][service_name] == '1':
+                run_proc(service_name)
     while True:
         time.sleep(1)

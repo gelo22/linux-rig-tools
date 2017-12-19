@@ -67,9 +67,7 @@ def parse_configuration(args):
 def _gen_conf(config_file_name, miner_name):
     '''Generate config'''
     conf = configparser.ConfigParser()
-    for key in vars(args):
-        if key == 'config':
-            continue
+    for key in ['miner_name', 'api_options', 'oc_options', 'watchdog_options']:
         key_tmp = key.split('_')
         section = key_tmp[0]
         section_key = '_'.join(key_tmp[1:])
